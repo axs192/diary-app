@@ -32,10 +32,15 @@ One-time setup (as root in the LXC; `<...>` values are yours to fill in):
 
 ```bash
 apt install -y git curl
-curl -LsSf https://astral.sh/uv/install.sh | sh   # then make uv available to the diary user
-useradd --system --create-home --shell /usr/sbin/nologin diary
-git clone https://github.com/axs192/diary-app /opt/diary-app
-chown -R diary:diary /opt/diary-app
+# uv into /usr/local/bin so the service user can run it too
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
+
+# System account with no password or login shell; home holds uv's cache
+adduser --system --group --home /var/lib/diary --shell /usr/sbin/nologin diary
+
+# Clone as the service user so file ownership is right from the start
+install -d -o diary -g diary /opt/diary-app
+runuser -u diary -- git clone https://github.com/axs192/diary-app /opt/diary-app
 
 install -d -m 0750 -o root -g diary /etc/diary-app
 install -m 0640 -o root -g diary /opt/diary-app/deploy/diary-app.env.example /etc/diary-app/diary-app.env
