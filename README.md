@@ -28,7 +28,18 @@ enforced by ruff.
 
 ## Deploying to a Proxmox LXC
 
-One-time setup (as root in the LXC; `<...>` values are yours to fill in):
+One-time setup, as root in the LXC.
+
+First, create a normal admin account so day-to-day work (including deploys)
+doesn't happen as root. Debian LXC templates often omit `sudo`:
+
+```bash
+apt update && apt install -y sudo
+adduser admin                  # prompts for a password; pick any username
+usermod -aG sudo admin
+```
+
+Then log in as `admin` and run the rest with `sudo -i` (or stay as root):
 
 ```bash
 apt install -y git curl
