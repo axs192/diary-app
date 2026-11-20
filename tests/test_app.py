@@ -72,5 +72,35 @@ class AppTest(unittest.TestCase):
         self.assertNotIn(_SECRET, "\n".join(logs.output))
 
 
+class HomePageTest(unittest.TestCase):
+    """The /home page is HTML that an iPad can run as a full-screen app."""
+
+    def test_home_returns_html(self) -> None:
+        response = _make_client().get("/home")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("text/html", response.headers["content-type"])
+
+    def test_home_declares_ios_web_app_capable(self) -> None:
+        html = _make_client().get("/home").text
+        self.assertIn(
+            '<meta name="apple-mobile-web-app-capable" content="yes">', html
+        )
+
+    def test_home_sets_viewport_for_ipad(self) -> None:
+        html = _make_client().get("/home").text
+        self.assertIn('name="viewport"', html)
+        self.assertIn("width=device-width", html)
+
+    def test_home_shows_greeting_and_never_the_api_key(self) -> None:
+        html = _make_client().get("/home").text
+        self.assertIn("Hello from diary-app", html)
+        self.assertNotIn(_SECRET, html)
+
+    def test_home_uses_no_javascript(self) -> None:
+        # Safari on iOS 9 (iPad mini 1st gen) predates modern JS features.
+        html = _make_client().get("/home").text
+        self.assertNotIn("<script", html)
+
+
 if __name__ == "__main__":
     unittest.main()
