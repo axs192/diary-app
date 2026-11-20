@@ -1,0 +1,25 @@
+[Unit]
+Description=diary-app FastAPI backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=diary
+Group=diary
+WorkingDirectory=/opt/diary-app
+# Credentials live outside the git checkout so deploys never overwrite them.
+EnvironmentFile=/etc/diary-app/diary-app.env
+ExecStart=/opt/diary-app/.venv/bin/uvicorn --factory diary_app.app:create_app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

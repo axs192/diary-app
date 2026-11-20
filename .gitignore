@@ -1,0 +1,45 @@
+# --- Secrets and credentials (this repo is PUBLIC) ---
+.env
+.env.*
+!.env.example
+!deploy/diary-app.env.example
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+credentials*
+*.secret
+
+# --- Claude / AI tooling ---
+.claude/
+.claude.json
+CLAUDE.md
+AGENTS.md
+
+# --- Non-public material ---
+spike/
+scratch/
+notes/
+docs/private/
+*.local.md
+*.local
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# --- Editors and OS ---
+.idea/
+.vscode/
+.DS_Store
+*.swp

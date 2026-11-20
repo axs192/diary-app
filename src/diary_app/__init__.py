@@ -1,0 +1,1 @@
+"""Family diary backend (spike)."""
