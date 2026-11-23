@@ -161,6 +161,15 @@ class SettingsPageTest(_WebTestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_everyone_role_is_not_offered_or_accepted(self) -> None:
+        html = self.client.get("/settings").text
+        self.assertNotIn('<option value="Everyone">', html)
+        response = self.client.post(
+            "/settings/people",
+            data={"name": "Second", "role": "Everyone", "colour": "#B04A17"},
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_updating_an_unknown_person_is_not_found(self) -> None:
         response = self.client.post(
             "/settings/people/999",

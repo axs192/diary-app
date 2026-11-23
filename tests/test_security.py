@@ -41,6 +41,15 @@ class PinCheckerTest(unittest.TestCase):
         self.clock.now += 61
         self.assertEqual(self.checker.check("4321"), security.PinResult.OK)
 
+    def test_starting_a_lockout_is_logged_without_the_pin(self) -> None:
+        with self.assertLogs("diary_app.security", level="WARNING") as logs:
+            for _ in range(3):
+                self.checker.check("0000")
+        output = "\n".join(logs.output)
+        self.assertIn("lockout", output.lower())
+        self.assertNotIn("4321", output)
+        self.assertNotIn("0000", output)
+
     def test_success_resets_the_failure_count(self) -> None:
         self.checker.check("0000")
         self.checker.check("0000")

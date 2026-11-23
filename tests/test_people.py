@@ -64,6 +64,15 @@ class PeopleTest(unittest.TestCase):
         with self.assertRaises(people.InvalidPersonError):
             people.add_person(self.conn, "Alex", "Wizard", _ORANGE)
 
+    def test_everyone_cannot_be_added_by_hand(self) -> None:
+        # "Family" is created once by the database; a second one would
+        # confuse code that expects exactly one.
+        with self.assertRaises(people.InvalidPersonError):
+            people.add_person(self.conn, "Family 2", "Everyone", _ORANGE)
+
+    def test_only_adult_and_child_can_be_added(self) -> None:
+        self.assertEqual(people.ADDABLE_ROLES, ("Adult", "Child"))
+
     def test_names_are_trimmed(self) -> None:
         person = people.add_person(self.conn, "  Alex  ", "Adult", _ORANGE)
         self.assertEqual(person.name, "Alex")

@@ -2,11 +2,14 @@
 
 import enum
 import hmac
+import logging
 import threading
 import time
 from collections.abc import Callable
 
 import fastapi
+
+_logger = logging.getLogger(__name__)
 
 
 class PinResult(enum.Enum):
@@ -75,6 +78,12 @@ class PinChecker:
             if self._failures >= self._max_failures:
                 self._failures = 0
                 self._locked_until = now + self._lockout_seconds
+                _logger.warning(
+                    "PIN lockout started: %d wrong attempts in a row; "
+                    "login refused for %d seconds",
+                    self._max_failures,
+                    self._lockout_seconds,
+                )
             return PinResult.WRONG
 
 

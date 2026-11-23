@@ -151,7 +151,7 @@ def show_settings(request: fastapi.Request, conn: Db) -> responses.HTMLResponse:
         ],
         people=people.list_people(conn),
         palette=list(theme.PERSON_COLOURS.items()),
-        roles=people.ROLES,
+        roles=people.ADDABLE_ROLES,
     )
 
 

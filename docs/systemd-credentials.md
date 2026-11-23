@@ -91,6 +91,11 @@ sudo /opt/diary-app/deploy/creds.sh household_pin --force
 sudo systemctl restart diary-app
 ```
 
+Devices that are already logged in stay logged in after a PIN change, because the login
+cookie is signed with `session_secret`, not the PIN. If the PIN has leaked, rotate that too
+(`creds.sh session_secret --generate --force`) before restarting: every device is then logged
+out and must enter the new PIN.
+
 ## Things worth knowing
 
 - `.cred` files only decrypt on the machine whose `credential.secret` encrypted them.

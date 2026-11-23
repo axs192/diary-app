@@ -82,6 +82,45 @@ class ConnectTest(unittest.TestCase):
                 db.connect(folder / "x.db", migrations_dir=folder)
 
 
+class ConcurrencyAndPathTest(unittest.TestCase):
+    """Parallel requests and fresh checkouts must not break connect."""
+
+    def test_parallel_connects_on_a_fresh_database_all_succeed(self) -> None:
+        workers = 8
+        barrier = threading.Barrier(workers)
+        errors: list[BaseException] = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "diary.db"
+
+            def open_db() -> None:
+                try:
+                    barrier.wait()
+                    db.connect(path).close()
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(exc)
+
+            threads = [threading.Thread(target=open_db) for _ in range(workers)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            conn = db.connect(path)
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+            people = conn.execute("SELECT COUNT(*) FROM person").fetchone()[0]
+            conn.close()
+
+        self.assertEqual(errors, [])
+        self.assertGreaterEqual(version, 2)
+        self.assertEqual(people, 1)  # the seed row was inserted exactly once
+
+    def test_connect_creates_a_missing_parent_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "data" / "nested" / "diary.db"
+            db.connect(path).close()
+            self.assertTrue(path.exists())
+
+
 class SettingTest(unittest.TestCase):
     """get_setting / set_setting store small key-value preferences."""
 

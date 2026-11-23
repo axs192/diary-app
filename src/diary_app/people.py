@@ -6,6 +6,8 @@ import sqlite3
 from diary_app import theme
 
 ROLES = ("Adult", "Child", "Everyone")
+# "Everyone" (Family) is created once by the database, never by hand.
+ADDABLE_ROLES = ("Adult", "Child")
 _MAX_NAME_LENGTH = 50
 
 
@@ -72,8 +74,8 @@ def add_person(
         InvalidPersonError: If any detail is not acceptable.
     """
     name, outlook_category = _validate(name, colour, outlook_category)
-    if role not in ROLES:
-        msg = f"Role must be one of {', '.join(ROLES)}."
+    if role not in ADDABLE_ROLES:
+        msg = f"Role must be one of {', '.join(ADDABLE_ROLES)}."
         raise InvalidPersonError(msg)
     cursor = conn.execute(
         "INSERT INTO person (name, role, colour, outlook_category)"
