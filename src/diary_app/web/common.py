@@ -82,7 +82,21 @@ def render(
 
 
 def back_to(url: str) -> responses.RedirectResponse:
-    """Redirects after a form post (303, so the browser re-fetches by GET)."""
+    """Redirects after a form post (303, so the browser re-fetches by GET).
+
+    Args:
+        url: A path on this site, such as ``/meals?week=2030-01-07``.
+
+    Returns:
+        The redirect response.
+
+    Raises:
+        ValueError: If ``url`` could lead off this site (so a request value
+            can never turn a redirect into an open redirect).
+    """
+    if not url.startswith("/") or url.startswith(("//", "/\\")):
+        msg = f"Not a local path: {url!r}"
+        raise ValueError(msg)
     return responses.RedirectResponse(url, status_code=303)
 
 
