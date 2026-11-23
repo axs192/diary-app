@@ -397,25 +397,32 @@ class ImportTest(_MealsTestCase):
 
 
 class SettingsLayoutTest(_MealsTestCase):
-    """Settings is a list of sections on the left, one open on the right."""
+    """Settings is a stack of rows with chevrons; a row expands in place."""
 
     _SECTIONS = ("colour", "people", "sites", "device")
 
     def _open_sections(self, html: str) -> list[str]:
         return re.findall(
-            r'<section class="settings-section open" id="section-(\w+)"', html
+            r'<details class="acc settings-section" id="section-(\w+)" open>',
+            html,
         )
 
-    def test_the_list_links_to_every_section(self) -> None:
+    def test_every_section_is_a_row_with_a_chevron(self) -> None:
         self.log_in()
         html = self.client.get("/settings").text
         for key in self._SECTIONS:
-            self.assertIn(f'href="/settings?section={key}"', html, key)
+            self.assertIn(
+                f'<details class="acc settings-section" id="section-{key}"',
+                html,
+                key,
+            )
+        self.assertEqual(html.count('class="chev"'), len(self._SECTIONS))
+        self.assertEqual(html.count("<summary"), len(self._SECTIONS))
 
-    def test_app_colour_is_open_by_default(self) -> None:
+    def test_rows_start_closed(self) -> None:
         self.log_in()
         self.assertEqual(
-            self._open_sections(self.client.get("/settings").text), ["colour"]
+            self._open_sections(self.client.get("/settings").text), []
         )
 
     def test_the_chosen_section_is_the_one_open(self) -> None:
@@ -424,10 +431,10 @@ class SettingsLayoutTest(_MealsTestCase):
             html = self.client.get(f"/settings?section={key}").text
             self.assertEqual(self._open_sections(html), [key], key)
 
-    def test_an_unknown_section_falls_back_to_app_colour(self) -> None:
+    def test_an_unknown_section_leaves_every_row_closed(self) -> None:
         self.log_in()
         html = self.client.get("/settings?section=zzz").text
-        self.assertEqual(self._open_sections(html), ["colour"])
+        self.assertEqual(self._open_sections(html), [])
 
     def test_every_section_is_still_in_the_page(self) -> None:
         self.log_in()
@@ -445,10 +452,17 @@ class SettingsLayoutTest(_MealsTestCase):
         )
         self.assertEqual(person.headers["location"], "/settings?section=people")
 
-    def test_the_list_is_flexbox_with_a_phone_rule(self) -> None:
+    def test_it_needs_no_javascript(self) -> None:
+        self.log_in()
+        self.assertNotIn("<script", self.client.get("/settings").text)
+
+    def test_the_stylesheet_turns_the_chevron_and_hides_the_marker(
+        self,
+    ) -> None:
         css = self.client.get("/static/app.css").text
-        self.assertIn(".settings-list", css)
-        self.assertIn(".settings-section.open", css)
+        self.assertIn("details[open]", css)
+        self.assertIn("::-webkit-details-marker", css)
+        self.assertIn("min-height: 56px", css)  # a comfortable touch target
 
 
 class SitesTest(_MealsTestCase):

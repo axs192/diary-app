@@ -95,15 +95,15 @@ def show_today(
 
 @protected.get("/settings")
 def show_settings(
-    request: fastapi.Request, conn: common.Db, section: str = "colour"
+    request: fastapi.Request, conn: common.Db, section: str = ""
 ) -> responses.HTMLResponse:
-    """Shows the settings list with one section open (default: app colour)."""
+    """Shows the settings rows, with the section named by ``section`` open."""
     return common.render(
         request,
         conn,
         "settings.html",
         sections=_SECTIONS,
-        section=section if section in dict(_SECTIONS) else "colour",
+        section=section if section in dict(_SECTIONS) else "",
         builtin_sites=sorted(recipe_import.ALLOWED_HOSTS),
         added_sites=import_sites.added(conn),
         app_colour=db.get_setting(conn, common.APP_COLOUR_KEY, theme.DEFAULT),
