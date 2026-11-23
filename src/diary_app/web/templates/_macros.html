@@ -1,0 +1,25 @@
+{% macro tag_chips(tags) %}
+{% if tags %}
+<ul class="chips">
+  {% for tag in tags %}<li class="chip" style="{{ tag_style(tag) }}">{{ tag }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}
+
+{% macro heart(recipe, back) %}
+<form class="inline-form" method="post" action="/recipes/{{ recipe.id }}/favourite">
+  <input type="hidden" name="favourite" value="{{ '0' if recipe.is_favourite else '1' }}">
+  <input type="hidden" name="back" value="{{ back }}">
+  <button class="icon-btn" type="submit" aria-label="{{ 'Remove from favourites' if recipe.is_favourite else 'Add to favourites' }}">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="{{ 'currentColor' if recipe.is_favourite else 'none' }}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z"/></svg>
+  </button>
+</form>
+{% endmacro %}
+
+{% macro day_select(days, selected, name="day") %}
+<select class="input day-select" name="{{ name }}" aria-label="Day">
+  {% for d in days %}
+  <option value="{{ d.isoformat() }}"{% if d == selected %} selected{% endif %}>{{ d.strftime("%a") }} {{ d.day }} {{ d.strftime("%b") }}</option>
+  {% endfor %}
+</select>
+{% endmacro %}

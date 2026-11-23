@@ -20,6 +20,10 @@ The licence above covers the source code in this repository only.
 * diary-app is not affiliated with, endorsed by or sponsored by the BBC or
   BBC Good Food. "BBC" and "BBC Good Food" are trademarks of their owners and
   are named only to describe a site recipes may be imported from.
+* Each imported recipe is saved with a link and credit to its source site,
+  which is shown on the recipe page.
+* The importer reads one page at a time, obeys robots.txt, and identifies
+  itself as "diary-app recipe importer".
 * No bulk scraper for any third-party site is shipped with this project.
 * Your database and any imported recipes live on your own server and are
   excluded from version control (see .gitignore).

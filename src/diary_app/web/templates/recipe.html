@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import tag_chips, heart, day_select %}
+{% block title %}Diary · {{ recipe.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">{{ recipe.style }} &middot; {{ recipe.mins }} min &middot; serves {{ recipe.servings }}</div>
+  <h1 class="title">{{ recipe.name }}</h1>
+  {{ tag_chips(recipe.tags) }}
+  <div class="row week-nav">
+    {{ heart(recipe, here) }}
+    <a class="btn btn-small" href="/recipes/{{ recipe.id }}/edit">Edit</a>
+    <a class="btn btn-small" href="/meals">Back to meals</a>
+  </div>
+</div>
+
+<section class="card" aria-label="Add to a day">
+  <form class="row" method="post" action="/meals/day">
+    <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
+    {{ day_select(upcoming, upcoming[0]) }}
+    <button class="btn btn-primary accent-bg" type="submit">Add to day</button>
+  </form>
+  {% if planned_on %}<p class="muted">Already planned on {% for d in planned_on|sort %}{{ d.strftime("%a") }} {{ d.day }} {{ d.strftime("%b") }}{% if not loop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+</section>
+
+<div class="row panels">
+  <section class="card panel" aria-label="Ingredients">
+    <h2 class="section-title">Ingredients</h2>
+    {% if recipe.ingredients %}
+    <ul class="plain-list">{% for line in recipe.ingredients %}<li>{{ line }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No ingredients saved.</p>{% endif %}
+  </section>
+  <section class="card panel" aria-label="Method">
+    <h2 class="section-title">Method</h2>
+    {% if recipe.steps %}
+    <ol class="steps">{% for line in recipe.steps %}<li>{{ line }}</li>{% endfor %}</ol>
+    {% else %}<p class="muted">No method saved.</p>{% endif %}
+  </section>
+</div>
+
+{% if recipe.source_url %}
+<p class="muted">Source: <a href="{{ recipe.source_url }}" rel="noopener noreferrer">{{ recipe.source_name or recipe.source_url }}</a>. Recipe text belongs to its author.</p>
+{% endif %}
+
+<form method="post" action="/recipes/{{ recipe.id }}/delete">
+  <button class="btn btn-danger" type="submit">Delete this meal</button>
+</form>
+{% endblock %}

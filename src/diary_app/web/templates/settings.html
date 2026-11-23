@@ -15,12 +15,21 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <div class="eyebrow">Settings</div>
-    <h1 class="title">People &amp; colours</h1>
+    <div class="eyebrow">Diary</div>
+    <h1 class="title">Settings</h1>
   </div>
 </div>
 
-<section class="card" aria-label="App colour">
+<div class="settings">
+<nav class="settings-list" aria-label="Settings sections">
+  {% for key, label in sections %}
+  <a class="settings-item" href="/settings?section={{ key }}"{% if key == section %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+<div class="settings-body">
+
+<section class="settings-section{{ ' open' if section == 'colour' }}" id="section-colour" aria-label="App colour">
+<div class="card">
   <h2 class="section-title">App colour</h2>
   <p class="muted">Used for buttons and the selected tab on every screen.</p>
   <form method="post" action="/settings/colour">
@@ -34,9 +43,10 @@
     </div>
     <button class="btn btn-primary accent-bg" type="submit">Save colour</button>
   </form>
+</div>
 </section>
 
-<section aria-label="People">
+<section class="settings-section{{ ' open' if section == 'people' }}" id="section-people" aria-label="People">
   <h2 class="section-title">People</h2>
   <p class="muted">Each person's colour, and the Outlook category that will mark their events on the family calendar.</p>
   {% for p in people %}
@@ -83,10 +93,37 @@
   </form>
 </section>
 
-<section class="card" aria-label="Session">
+<section class="settings-section{{ ' open' if section == 'sites' }}" id="section-sites" aria-label="Recipe sites">
+  <div class="card">
+    <h2 class="section-title">Recipe sites</h2>
+    <p class="muted">Recipes can be imported from these sites, one page at a time. Add a site by typing its name as it appears in the address bar, for example www.example.com.</p>
+    <ul class="plain-list">
+      {% for host in builtin_sites %}<li>{{ host }} <span class="muted-inline">built in</span></li>{% endfor %}
+    </ul>
+    {% for host in added_sites %}
+    <form class="site-row" method="post" action="/settings/sites/remove">
+      <span class="site-name">{{ host }}</span>
+      <input type="hidden" name="host" value="{{ host }}">
+      <button class="btn btn-small" type="submit" aria-label="Remove {{ host }}">Remove</button>
+    </form>
+    {% endfor %}
+  </div>
+  <form class="card" method="post" action="/settings/sites">
+    <h3 class="section-title">Add a site</h3>
+    <label class="label" for="site">Site name</label>
+    <input class="input" id="site" name="site" type="text" inputmode="url" autocapitalize="none" autocorrect="off" placeholder="www.example.com" maxlength="253">
+    <button class="btn btn-primary accent-bg" type="submit">Add site</button>
+  </form>
+</section>
+
+<section class="settings-section{{ ' open' if section == 'device' }}" id="section-device" aria-label="This device">
+<div class="card">
   <h2 class="section-title">This device</h2>
   <form method="post" action="/logout">
     <button class="btn" type="submit">Lock the diary</button>
   </form>
+</div>
 </section>
+</div>
+</div>
 {% endblock %}
