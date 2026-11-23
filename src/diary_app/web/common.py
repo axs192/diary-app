@@ -95,17 +95,14 @@ def back_to(url: str) -> responses.RedirectResponse:
         ValueError: If ``url`` could lead off this site (so a request value
             can never turn a redirect into an open redirect).
     """
-    parts = urllib.parse.urlsplit(url.replace("\\", ""))
-    # Browsers read "/\\host" like "//host", so refuse both outright.
-    if (
-        parts.scheme
-        or parts.netloc
-        or not url.startswith("/")
-        or url.startswith(("//", "/\\"))
-    ):
+    safe_url = url.replace("\\", "")
+    parts = urllib.parse.urlsplit(safe_url)
+    # Browsers read backslashes as slashes in redirect targets, so validate
+    # and redirect using the same canonical value.
+    if parts.scheme or parts.netloc or not safe_url.startswith("/") or safe_url.startswith("//"):
         msg = f"Not a local path: {url!r}"
         raise ValueError(msg)
-    return responses.RedirectResponse(url, status_code=303)
+    return responses.RedirectResponse(safe_url, status_code=303)
 
 
 def rejected(
