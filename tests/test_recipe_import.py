@@ -294,6 +294,44 @@ class FetchDraftTest(unittest.TestCase):
         with self.assertRaises(recipe_import.RecipeImportError):
             recipe_import.fetch_draft(_URL, client, resolver)
 
+    def test_only_listed_recipe_sites_can_be_fetched(self) -> None:
+        client, seen = _client(_site())
+        for url in (
+            "https://example.org/recipe",
+            "https://www.bbcgoodfood.com.evil.example/recipe",
+            "https://evil.example/www.bbcgoodfood.com",
+            "https://user@evil.example/recipe",
+        ):
+            with self.assertRaises(
+                recipe_import.RecipeImportError, msg=url
+            ) as caught:
+                recipe_import.fetch_draft(url, client, _resolver())
+            self.assertIn("isn't supported", str(caught.exception), url)
+        self.assertEqual(seen, [])
+
+    def test_every_listed_site_is_accepted(self) -> None:
+        for host in sorted(recipe_import.ALLOWED_HOSTS):
+            client, _seen = _client(_site())
+            draft = recipe_import.fetch_draft(
+                f"https://{host}/recipe/1", client, _resolver()
+            )
+            self.assertEqual(draft.name, "Easy curry", host)
+
+    def test_redirect_from_a_listed_site_to_an_unlisted_one_is_refused(
+        self,
+    ) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/robots.txt":
+                return httpx.Response(404)
+            return httpx.Response(
+                302, headers={"location": "https://example.org/stolen"}
+            )
+
+        client, seen = _client(handler)
+        with self.assertRaises(recipe_import.RecipeImportError):
+            recipe_import.fetch_draft(_URL, client, _resolver())
+        self.assertFalse([u for u in seen if "example.org" in u])
+
     def test_refuses_an_ip_address_in_the_url(self) -> None:
         client, seen = _client(_site())
         with self.assertRaises(recipe_import.RecipeImportError):

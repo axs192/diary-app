@@ -37,6 +37,17 @@ _DEFAULT_MINS = 30
 _QUICK_MINS = 30
 _DEFAULT_SERVINGS = 4
 _MAX_NAME = 100
+# Only these sites can be fetched: the importer takes one page at a time from
+# recipe sites the household uses, so a pasted address can never make the
+# server request anything else (including other machines on the LAN).
+ALLOWED_HOSTS = frozenset(
+    {
+        "www.bbcgoodfood.com",
+        "www.allrecipes.com",
+        "www.food.com",
+        "www.epicurious.com",
+    }
+)
 _KNOWN_SITES = {"bbcgoodfood.com": "BBC Good Food"}
 _OILY_FISH = (
     "salmon",
@@ -142,7 +153,7 @@ def fetch_draft(
     """Downloads one recipe page and reads its recipe.
 
     Args:
-        url: Web address of the page (http or https).
+        url: Web address of a page on one of ``ALLOWED_HOSTS``.
         client: HTTP client to use; tests pass one with a mock transport.
         resolve: Turns a host name into IP addresses. Defaults to the
             system resolver.
@@ -151,7 +162,7 @@ def fetch_draft(
         A draft to review and save.
 
     Raises:
-        RecipeImportError: If the address is not allowed, the site's
+        RecipeImportError: If the site is not supported, the site's
             robots.txt forbids it, the page can't be fetched, or it holds
             no readable recipe.
     """
@@ -192,6 +203,10 @@ def _check_address(url: str, resolve: Callable[[str], list[str]]) -> None:
         msg = "Use a web address starting http:// or https://."
         raise RecipeImportError(msg)
     host = parts.hostname
+    if host not in ALLOWED_HOSTS or parts.username or parts.password:
+        sites = ", ".join(sorted(ALLOWED_HOSTS))
+        msg = f"That site isn't supported for import. Supported: {sites}."
+        raise RecipeImportError(msg)
     try:
         addresses = [str(ipaddress.ip_address(host))]
     except ValueError:

@@ -107,7 +107,14 @@ def show_import(
     request: fastapi.Request, conn: common.Db
 ) -> responses.HTMLResponse:
     """Shows the form asking for a recipe's web address."""
-    return common.render(request, conn, "import.html", url="", error="")
+    return common.render(
+        request,
+        conn,
+        "import.html",
+        url="",
+        error="",
+        sites=sorted(recipe_import.ALLOWED_HOSTS),
+    )
 
 
 @router.post("/recipes/import")
@@ -122,6 +129,7 @@ def submit_import(
             "import.html",
             status_code=400,
             url=url,
+            sites=sorted(recipe_import.ALLOWED_HOSTS),
             error="Paste the web address of a recipe page.",
         )
     try:
@@ -135,6 +143,7 @@ def submit_import(
             "import.html",
             status_code=400,
             url=url,
+            sites=sorted(recipe_import.ALLOWED_HOSTS),
             error=str(exc),
         )
     return _form_page(

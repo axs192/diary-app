@@ -363,6 +363,20 @@ class ImportTest(_MealsTestCase):
         self.assertEqual(self.requests, [])
         self.assertIn("No meals yet", self.client.get(_WEEK).text)
 
+    def test_import_page_lists_the_supported_sites(self) -> None:
+        self.log_in()
+        html = self.client.get("/recipes/import").text
+        self.assertIn("www.bbcgoodfood.com", html)
+
+    def test_an_unsupported_site_is_refused_without_a_request(self) -> None:
+        self.log_in()
+        response = self.client.post(
+            "/recipes/import", data={"url": "http://192.168.1.1/admin"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("isn&#39;t supported", response.text)
+        self.assertEqual(self.requests, [])
+
     def test_a_blank_address_is_refused(self) -> None:
         self.log_in()
         response = self.client.post("/recipes/import", data={"url": "  "})
@@ -376,7 +390,8 @@ class ImportTest(_MealsTestCase):
         self.setUp()
         self.log_in()
         response = self.client.post(
-            "/recipes/import", data={"url": "https://example.org/r"}
+            "/recipes/import",
+            data={"url": "https://www.bbcgoodfood.com/recipes/r"},
         )
         self.assertNotIn("<img src=x", response.text)
 
