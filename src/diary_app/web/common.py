@@ -99,7 +99,12 @@ def back_to(url: str) -> responses.RedirectResponse:
     parts = urllib.parse.urlsplit(safe_url)
     # Browsers read backslashes as slashes in redirect targets, so validate
     # and redirect using the same canonical value.
-    if parts.scheme or parts.netloc or not safe_url.startswith("/") or safe_url.startswith("//"):
+    if (
+        parts.scheme
+        or parts.netloc
+        or not safe_url.startswith("/")
+        or safe_url.startswith("//")
+    ):
         msg = f"Not a local path: {url!r}"
         raise ValueError(msg)
     return responses.RedirectResponse(safe_url, status_code=303)
