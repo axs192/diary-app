@@ -1,6 +1,7 @@
 """The Meals page: the weekly dinner plan, the library, Suggest a week."""
 
 import datetime
+import re
 import sqlite3
 
 import fastapi
@@ -22,7 +23,12 @@ _PRIORITY_LABELS = (
     ("batch-cook", "Batch-cook"),
 )
 _STYLES = (planner.MIXED, *recipes.STYLES)
-_SAFE_BACK_PREFIXES = ("/meals", "/recipes/")
+_TAB_NAMES = {key: key for key, _label in _TABS}  # constants, not input
+_BACK_RECIPE = re.compile(r"^/recipes/([0-9]{1,9})$")
+_BACK_MEALS = re.compile(
+    r"^/meals(?:\?week=([0-9]{4}-[0-9]{2}-[0-9]{2})"
+    r"(?:&tab=(ideas|favourites|mine))?)?$"
+)
 
 
 def parse_day(text: str) -> datetime.date | None:
@@ -34,10 +40,34 @@ def parse_day(text: str) -> datetime.date | None:
 
 
 def safe_back(back: str, default: str = "/meals") -> str:
-    """Accepts a "return to" address only if it is one of our own pages."""
-    if back.startswith(_SAFE_BACK_PREFIXES):
-        return back
-    return default
+    """Turns a "return to" value from a form into one of our own pages.
+
+    The address is rebuilt from validated parts (a recipe number, a real
+    date, a known tab name), so the submitted text itself is never used as
+    a redirect target.
+
+    Args:
+        back: The submitted value, e.g. ``/meals?week=2030-01-07&tab=ideas``
+            or ``/recipes/12``.
+        default: Used when ``back`` isn't one of those shapes.
+
+    Returns:
+        A path on this site.
+    """
+    recipe = _BACK_RECIPE.match(back)
+    if recipe:
+        return f"/recipes/{int(recipe.group(1))}"
+    meals_page = _BACK_MEALS.match(back)
+    if not meals_page:
+        return default
+    url = "/meals"
+    week = parse_day(meals_page.group(1) or "")
+    if week is not None:
+        url += f"?week={week.isoformat()}"
+        tab = _TAB_NAMES.get(meals_page.group(2) or "")
+        if tab:
+            url += f"&tab={tab}"
+    return url
 
 
 def _week_of(text: str) -> datetime.date:
