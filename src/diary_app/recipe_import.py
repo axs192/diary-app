@@ -196,6 +196,7 @@ def _request(
     """GETs a URL, re-checking every redirect hop; returns reply and URL."""
     for _ in range(_MAX_REDIRECTS + 1):
         _check_address(url, guard)
+        url = _canonical_url(url)
         if robots:
             _check_robots(url, client, guard)
         reply = _get_once(url, client)
@@ -207,6 +208,25 @@ def _request(
         url = urllib.parse.urljoin(url, location)
     msg = "That address redirects too many times."
     raise RecipeImportError(msg)
+
+
+def _canonical_url(url: str) -> str:
+    parts = urllib.parse.urlsplit(url)
+    if parts.fragment:
+        msg = "Use a web address without a #fragment."
+        raise RecipeImportError(msg)
+    if parts.username or parts.password:
+        msg = "Use a web address without login details."
+        raise RecipeImportError(msg)
+    host = parts.hostname
+    if not host:
+        msg = "Use a web address starting http:// or https://."
+        raise RecipeImportError(msg)
+    netloc = host
+    if parts.port is not None:
+        netloc = f"{host}:{parts.port}"
+    path = parts.path or "/"
+    return urllib.parse.urlunsplit((parts.scheme, netloc, path, parts.query, ""))
 
 
 def _check_address(url: str, guard: _Guard) -> None:
