@@ -2,14 +2,16 @@
 
 import logging
 import pathlib
+from collections.abc import Callable
 
 import fastapi
 import fastapi.responses
 import fastapi.staticfiles
+import httpx
 from starlette.middleware import sessions
 
-from diary_app import config, security
-from diary_app.web import pages
+from diary_app import config, planner, security
+from diary_app.web import meals, pages, recipe_pages
 
 _logger = logging.getLogger(__name__)
 _STATIC = pathlib.Path(__file__).parent / "web" / "static"
@@ -17,7 +19,34 @@ _STATIC = pathlib.Path(__file__).parent / "web" / "static"
 _SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
 
 
-def create_app(settings: config.Settings | None = None) -> fastapi.FastAPI:
+# iOS asks for these paths when a page has no (usable) icon link, and sends
+# no cookie for some of them, so they are public.
+_ICON_GUESSES = (
+    "apple-touch-icon.png",
+    "apple-touch-icon-precomposed.png",
+    "apple-touch-icon-152x152.png",
+    "apple-touch-icon-152x152-precomposed.png",
+    "apple-touch-icon-180x180.png",
+    "apple-touch-icon-180x180-precomposed.png",
+)
+
+
+def _serve_icon_guesses(app: fastapi.FastAPI) -> None:
+    def icon() -> fastapi.responses.FileResponse:
+        return fastapi.responses.FileResponse(
+            _STATIC / "apple-touch-icon.png", media_type="image/png"
+        )
+
+    for name in _ICON_GUESSES:
+        app.add_api_route(f"/{name}", icon, include_in_schema=False)
+
+
+def create_app(
+    settings: config.Settings | None = None,
+    *,
+    http_client: httpx.Client | None = None,
+    resolve: Callable[[str], list[str]] | None = None,
+) -> fastapi.FastAPI:
     """Builds the FastAPI application.
 
     Run it with ``uvicorn --factory diary_app.app:create_app``.
@@ -25,6 +54,10 @@ def create_app(settings: config.Settings | None = None) -> fastapi.FastAPI:
     Args:
         settings: Configuration to use. When omitted, settings are loaded
             from the environment.
+        http_client: Client for recipe imports. Tests pass one with a mock
+            transport; when omitted, a real client is made on first use.
+        resolve: Turns a host name into IP addresses for the import
+            safety check. Defaults to the system resolver.
 
     Returns:
         A configured FastAPI application.
@@ -42,6 +75,10 @@ def create_app(settings: config.Settings | None = None) -> fastapi.FastAPI:
 
     app = fastapi.FastAPI(title="diary-app")
     app.state.database_path = settings.database_path
+    app.state.http_client = http_client
+    app.state.resolve = resolve
+    # The one place to swap in a different (e.g. AI-backed) suggester.
+    app.state.suggester = planner.RuleBasedSuggester()
     app.state.pin_checker = security.PinChecker(
         settings.household_pin.get_secret_value()
     )
@@ -67,7 +104,10 @@ def create_app(settings: config.Settings | None = None) -> fastapi.FastAPI:
     ) -> fastapi.responses.RedirectResponse:
         return fastapi.responses.RedirectResponse("/login", status_code=303)
 
+    _serve_icon_guesses(app)
     app.include_router(pages.router)
+    app.include_router(meals.router)
+    app.include_router(recipe_pages.router)
 
     @app.get("/")
     def read_root() -> dict[str, str]:

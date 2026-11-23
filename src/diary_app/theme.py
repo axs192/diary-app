@@ -84,3 +84,31 @@ def is_person_colour(value: str) -> bool:
         True only for colours in ``PERSON_COLOURS``.
     """
     return value in PERSON_COLOURS
+
+
+# Recipe tag chips: (background, text). Text meets 4.5:1 on its background.
+TAG_COLOURS: dict[str, tuple[str, str]] = {
+    "Oily fish": ("#DDEBF7", "#1B3D6E"),
+    "Veg-led": ("#E4F1E8", "#1F5A37"),
+    "Lean protein": ("#F1E9F7", "#45216A"),
+    "Wholegrain": ("#F6EAD2", "#6B4500"),
+    "Treat night": ("#F9E3ED", "#7E1A48"),
+    "Batch cook": ("#DDF1EF", "#0A4545"),
+    "Quick": ("#FBE6DC", "#8A3810"),
+    "Kid-friendly": ("#FFF3C4", "#6B5200"),
+}
+_NEUTRAL_TAG = ("#ECEEEA", "#2A302D")
+
+
+def tag_style(tag: str) -> str:
+    """Returns inline CSS colouring a recipe tag chip.
+
+    Args:
+        tag: A tag name; an unknown one gets a neutral grey.
+
+    Returns:
+        A ``style`` attribute value built only from fixed colours, so it is
+        safe to write into a page whatever the tag text was.
+    """
+    background, text = TAG_COLOURS.get(tag, _NEUTRAL_TAG)
+    return f"background: {background}; color: {text}"

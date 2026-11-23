@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_macros.html" import tag_chips, heart, day_select %}
+{% block title %}Diary · Meals{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">Meals</div>
+  <h1 class="title">Week of {{ monday.day }} {{ monday.strftime("%B") }}</h1>
+  <div class="row week-nav">
+    <a class="btn" href="{{ prev_week }}">&larr; Previous</a>
+    <a class="btn" href="/meals">This week</a>
+    <a class="btn" href="{{ next_week }}">Next &rarr;</a>
+  </div>
+</div>
+
+{% if flash %}<p class="notice" role="status">{{ flash }}</p>{% endif %}
+
+{% if library_total == 0 %}
+<section class="card" aria-label="Get started">
+  <h2 class="section-title">No meals yet</h2>
+  <p class="muted">Add the meals your family eats, or import a recipe from a web page, and then Suggest a week can plan for you.</p>
+  <div class="row">
+    <a class="btn btn-primary accent-bg" href="/recipes/new">Add your own meal</a>
+    <a class="btn" href="/recipes/import">Import from a web address</a>
+  </div>
+</section>
+{% endif %}
+
+<div class="days row">
+  {% for d in days %}
+  <article class="day card{% if d.day == today %} day-today{% endif %}" id="day-{{ d.day.isoformat() }}">
+    <h2 class="day-name">{{ d.day.strftime("%a") }} <span class="muted-inline">{{ d.day.day }} {{ d.day.strftime("%b") }}</span></h2>
+    {% if d.recipe %}
+    <a class="day-meal" href="/recipes/{{ d.recipe.id }}">{{ d.recipe.name }}</a>
+    <div class="meta">{{ d.recipe.mins }} min &middot; {{ d.recipe.style }}</div>
+    {{ tag_chips(d.recipe.tags) }}
+    <div class="row day-actions">
+      <a class="btn btn-small" href="/recipes/{{ d.recipe.id }}">Recipe</a>
+      <a class="btn btn-small" href="{{ here_week }}&amp;tab=ideas&amp;day={{ d.day.isoformat() }}#library">Swap</a>
+      <form class="inline-form" method="post" action="/meals/day/remove">
+        <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
+        <button class="btn btn-small" type="submit">Remove</button>
+      </form>
+      {{ heart(d.recipe, here) }}
+    </div>
+    {% else %}
+    <p class="muted">Nothing planned</p>
+    <a class="btn btn-small" href="{{ here_week }}&amp;tab=ideas&amp;day={{ d.day.isoformat() }}#library">Add a meal</a>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+<div class="row panels">
+  <form class="card panel" method="post" action="/meals/suggest" aria-label="Suggest a week">
+    <h2 class="section-title">Suggest a week</h2>
+    <p class="muted">Fills only the empty days. Meals you chose stay as they are.</p>
+    <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+    <label class="label" for="style">Style</label>
+    <select class="input" id="style" name="style">
+      {% for s in styles %}
+      <option value="{{ s }}"{% if s == style %} selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <div class="label priorities-label">Priorities</div>
+    <div class="row" role="group" aria-label="Priorities">
+      {% for key, label in priority_labels %}
+      <label class="choice">
+        <input type="checkbox" name="priorities" value="{{ key }}"{% if key in priorities %} checked{% endif %}>
+        <span class="choice-body option">{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button class="btn btn-primary accent-bg" type="submit">Suggest a week</button>
+  </form>
+
+  <section class="card panel" aria-label="Week balance">
+    <h2 class="section-title">Week balance</h2>
+    {% for b in bars %}
+    <div class="bar-row">
+      <div class="bar-text"><span>{{ b.label }}</span> <span class="muted-inline">{{ b.count }} {% if b.at_most %}(max {{ b.goal }}){% else %}of {{ b.goal }}{% endif %}</span></div>
+      <div class="bar"><div class="bar-fill accent-bg" style="width: {{ [b.count * 100 // b.goal, 100]|min }}%"></div></div>
+    </div>
+    {% endfor %}
+    <form method="post" action="/meals/clear">
+      <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+      <button class="btn" type="submit">Clear week</button>
+    </form>
+  </section>
+</div>
+
+<section class="card" id="library" aria-label="Meal library">
+  <h2 class="section-title">Meals</h2>
+  <nav class="row tabs" aria-label="Library">
+    {% for key, label in tabs %}
+    <a class="btn btn-small tab" href="{{ here_week }}&amp;tab={{ key }}#library"{% if key == tab %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+    <a class="btn btn-small" href="/recipes/new">Add your own meal</a>
+    <a class="btn btn-small" href="/recipes/import">Import</a>
+  </nav>
+  {% if tab == "ideas" and style != "Mixed" %}<p class="muted">Showing {{ style }} meals not yet planned this week.</p>{% endif %}
+  {% if library %}
+  <ul class="lib">
+    {% for r in library %}
+    <li class="lib-row">
+      <div class="lib-main">
+        <a class="lib-name" href="/recipes/{{ r.id }}">{{ r.name }}</a>
+        <div class="meta">{{ r.mins }} min &middot; {{ r.style }}</div>
+        {{ tag_chips(r.tags) }}
+      </div>
+      <div class="row lib-actions">
+        <form class="inline-form row" method="post" action="/meals/day">
+          <input type="hidden" name="recipe_id" value="{{ r.id }}">
+          {{ day_select(days|map(attribute="day")|list, selected_day) }}
+          <button class="btn btn-small" type="submit">Add to day</button>
+        </form>
+        {{ heart(r, here) }}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">{% if tab == "favourites" %}No favourites yet. Tap the heart on a meal.{% elif library_total == 0 %}Nothing here yet.{% else %}No meals to show here.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

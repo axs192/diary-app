@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Diary · Import a meal{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">Meals</div>
+  <h1 class="title">Import from a web address</h1>
+</div>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form class="card" method="post" action="/recipes/import">
+  <p class="muted">Paste the address of one recipe page. You will see what was found and can change it before saving. Recipes stay the property of their authors: this is for your own household's use, and each saved meal keeps a link back to its source.</p>
+  <label class="label" for="url">Recipe web address</label>
+  <input class="input" id="url" name="url" type="url" inputmode="url" value="{{ url }}" placeholder="https://" maxlength="500">
+  <div class="row">
+    <button class="btn btn-primary accent-bg" type="submit">Read the recipe</button>
+    <a class="btn" href="/meals">Cancel</a>
+  </div>
+</form>
+{% endblock %}
