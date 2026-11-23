@@ -325,33 +325,35 @@ select.input { background-color: #FAFBF8; }
 .page-head .chips { margin-top: 10px; }
 .label-spaced { margin-top: 12px; }
 
-/* Settings: a list of sections on the left, the chosen one on the right */
-.settings { display: flex; align-items: flex-start; }
-.settings-list {
-  flex: 0 0 220px;
-  margin-right: 24px;
-  display: flex;
-  flex-direction: column;
+/* Settings: rows that expand in place, with a chevron that turns */
+.acc-stack { max-width: 760px; }
+.acc {
+  background: #FFFFFF;
+  border: 1px solid #E1E4DE;
+  border-radius: 16px;
+  margin-bottom: 12px;
 }
-.settings-item {
-  min-height: 44px;
-  margin-bottom: 4px;
-  padding: 0 14px;
-  border-radius: 10px;
+/* The row is a block summary holding a flex span: Safari's older versions
+   mishandle display:flex on <summary> itself. */
+.acc-head {
+  display: block;
+  min-height: 56px;
+  padding: 0 18px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+}
+.acc-head::-webkit-details-marker { display: none; }
+.acc-row {
   display: flex;
   align-items: center;
-  color: #1C2321;
-  font-size: 16px;
-  font-weight: 500;
-  text-decoration: none;
+  justify-content: space-between;
+  min-height: 56px;
 }
-.settings-item[aria-current="page"] { background: #FFFFFF; border: 1px solid #E1E4DE; font-weight: 700; }
-.settings-body { flex: 1 1 0; min-width: 0; }
-.settings-section { display: none; }
-.settings-section.open { display: block; }
+.chev { flex: none; margin-left: 12px; transition: transform 0.15s; }
+details[open] > .acc-head .chev { transform: rotate(90deg); }
+.acc-body { padding: 0 18px 18px; }
+.acc-body > .muted:first-child { margin-top: 0; }
 .site-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
 .site-name { font-weight: 500; margin-right: 12px; word-break: break-all; }
-@media (max-width: 600px) {
-  .settings { flex-direction: column; align-items: stretch; }
-  .settings-list { flex: none; margin: 0 0 16px; }
-}

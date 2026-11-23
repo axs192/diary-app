@@ -12,6 +12,8 @@
 </div>
 {% endmacro %}
 
+{% macro chevron() %}<svg class="chev" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{% endmacro %}
+
 {% block content %}
 <div class="page-head">
   <div>
@@ -20,17 +22,11 @@
   </div>
 </div>
 
-<div class="settings">
-<nav class="settings-list" aria-label="Settings sections">
-  {% for key, label in sections %}
-  <a class="settings-item" href="/settings?section={{ key }}"{% if key == section %} aria-current="page"{% endif %}>{{ label }}</a>
-  {% endfor %}
-</nav>
-<div class="settings-body">
+<div class="acc-stack">
 
-<section class="settings-section{{ ' open' if section == 'colour' }}" id="section-colour" aria-label="App colour">
-<div class="card">
-  <h2 class="section-title">App colour</h2>
+<details class="acc settings-section" id="section-colour"{% if section == 'colour' %} open{% endif %}>
+  <summary class="acc-head"><span class="acc-row"><span>App colour</span>{{ chevron() }}</span></summary>
+  <div class="acc-body">
   <p class="muted">Used for buttons and the selected tab on every screen.</p>
   <form method="post" action="/settings/colour">
     <div class="row" role="radiogroup" aria-label="App colour">
@@ -43,11 +39,12 @@
     </div>
     <button class="btn btn-primary accent-bg" type="submit">Save colour</button>
   </form>
-</div>
-</section>
+  </div>
+</details>
 
-<section class="settings-section{{ ' open' if section == 'people' }}" id="section-people" aria-label="People">
-  <h2 class="section-title">People</h2>
+<details class="acc settings-section" id="section-people"{% if section == 'people' %} open{% endif %}>
+  <summary class="acc-head"><span class="acc-row"><span>People &amp; colours</span>{{ chevron() }}</span></summary>
+  <div class="acc-body">
   <p class="muted">Each person's colour, and the Outlook category that will mark their events on the family calendar.</p>
   {% for p in people %}
   <form class="card person" method="post" action="/settings/people/{{ p.id }}">
@@ -91,11 +88,13 @@
     {{ swatches(palette[0][0]) }}
     <button class="btn btn-primary accent-bg" type="submit">Add person</button>
   </form>
-</section>
+  </div>
+</details>
 
-<section class="settings-section{{ ' open' if section == 'sites' }}" id="section-sites" aria-label="Recipe sites">
+<details class="acc settings-section" id="section-sites"{% if section == 'sites' %} open{% endif %}>
+  <summary class="acc-head"><span class="acc-row"><span>Recipe sites</span>{{ chevron() }}</span></summary>
+  <div class="acc-body">
   <div class="card">
-    <h2 class="section-title">Recipe sites</h2>
     <p class="muted">Recipes can be imported from these sites, one page at a time. Add a site by typing its name as it appears in the address bar, for example www.example.com.</p>
     <ul class="plain-list">
       {% for host in builtin_sites %}<li>{{ host }} <span class="muted-inline">built in</span></li>{% endfor %}
@@ -114,16 +113,16 @@
     <input class="input" id="site" name="site" type="text" inputmode="url" autocapitalize="none" autocorrect="off" placeholder="www.example.com" maxlength="253">
     <button class="btn btn-primary accent-bg" type="submit">Add site</button>
   </form>
-</section>
+  </div>
+</details>
 
-<section class="settings-section{{ ' open' if section == 'device' }}" id="section-device" aria-label="This device">
-<div class="card">
-  <h2 class="section-title">This device</h2>
+<details class="acc settings-section" id="section-device"{% if section == 'device' %} open{% endif %}>
+  <summary class="acc-head"><span class="acc-row"><span>This device</span>{{ chevron() }}</span></summary>
+  <div class="acc-body">
   <form method="post" action="/logout">
     <button class="btn" type="submit">Lock the diary</button>
   </form>
-</div>
-</section>
-</div>
+  </div>
+</details>
 </div>
 {% endblock %}
