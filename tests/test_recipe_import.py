@@ -332,6 +332,49 @@ class FetchDraftTest(unittest.TestCase):
             recipe_import.fetch_draft(_URL, client, _resolver())
         self.assertFalse([u for u in seen if "example.org" in u])
 
+    def test_extra_allowed_hosts_can_be_passed_in(self) -> None:
+        client, _seen = _client(_site())
+        url = "https://www.example.org/recipe"
+        with self.assertRaises(recipe_import.RecipeImportError):
+            recipe_import.fetch_draft(url, client, _resolver())
+        draft = recipe_import.fetch_draft(
+            url,
+            client,
+            _resolver(),
+            allowed_hosts=recipe_import.ALLOWED_HOSTS | {"www.example.org"},
+        )
+        self.assertEqual(draft.name, "Easy curry")
+
+    def test_added_sites_still_cannot_reach_private_addresses(self) -> None:
+        client, seen = _client(_site())
+        resolver = _resolver({"www.example.org": ["192.168.1.9"]})
+        with self.assertRaises(recipe_import.RecipeImportError):
+            recipe_import.fetch_draft(
+                "https://www.example.org/recipe",
+                client,
+                resolver,
+                allowed_hosts={"www.example.org"},
+            )
+        self.assertEqual(seen, [])
+
+    def test_redirects_are_held_to_the_passed_hosts_too(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/robots.txt":
+                return httpx.Response(404)
+            return httpx.Response(
+                302, headers={"location": "https://www.other.org/x"}
+            )
+
+        client, seen = _client(handler)
+        with self.assertRaises(recipe_import.RecipeImportError):
+            recipe_import.fetch_draft(
+                "https://www.example.org/r",
+                client,
+                _resolver(),
+                allowed_hosts={"www.example.org"},
+            )
+        self.assertFalse([u for u in seen if "other.org" in u])
+
     def test_refuses_an_ip_address_in_the_url(self) -> None:
         client, seen = _client(_site())
         with self.assertRaises(recipe_import.RecipeImportError):

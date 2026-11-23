@@ -8,7 +8,7 @@ import fastapi
 import httpx
 from fastapi import responses
 
-from diary_app import mealplan, recipe_import, recipes
+from diary_app import import_sites, mealplan, recipe_import, recipes
 from diary_app.web import common, meals
 
 router = common.protected_router()
@@ -107,13 +107,14 @@ def show_import(
     request: fastapi.Request, conn: common.Db
 ) -> responses.HTMLResponse:
     """Shows the form asking for a recipe's web address."""
+    allowed = import_sites.allowed(conn)
     return common.render(
         request,
         conn,
         "import.html",
         url="",
         error="",
-        sites=sorted(recipe_import.ALLOWED_HOSTS),
+        sites=sorted(allowed),
     )
 
 
@@ -122,6 +123,7 @@ def submit_import(
     request: fastapi.Request, conn: common.Db, url: common.FormText = ""
 ) -> responses.HTMLResponse:
     """Reads a recipe from a web page into the form, for review (not saved)."""
+    allowed = import_sites.allowed(conn)
     if not url.strip():
         return common.render(
             request,
@@ -129,12 +131,15 @@ def submit_import(
             "import.html",
             status_code=400,
             url=url,
-            sites=sorted(recipe_import.ALLOWED_HOSTS),
+            sites=sorted(allowed),
             error="Paste the web address of a recipe page.",
         )
     try:
         draft = recipe_import.fetch_draft(
-            url, _http_client(request), request.app.state.resolve
+            url,
+            _http_client(request),
+            request.app.state.resolve,
+            allowed_hosts=allowed,
         )
     except recipe_import.RecipeImportError as exc:
         return common.render(
@@ -143,7 +148,7 @@ def submit_import(
             "import.html",
             status_code=400,
             url=url,
-            sites=sorted(recipe_import.ALLOWED_HOSTS),
+            sites=sorted(allowed),
             error=str(exc),
         )
     return _form_page(

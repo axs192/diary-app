@@ -396,6 +396,134 @@ class ImportTest(_MealsTestCase):
         self.assertNotIn("<img src=x", response.text)
 
 
+class SettingsLayoutTest(_MealsTestCase):
+    """Settings is a list of sections on the left, one open on the right."""
+
+    _SECTIONS = ("colour", "people", "sites", "device")
+
+    def _open_sections(self, html: str) -> list[str]:
+        return re.findall(
+            r'<section class="settings-section open" id="section-(\w+)"', html
+        )
+
+    def test_the_list_links_to_every_section(self) -> None:
+        self.log_in()
+        html = self.client.get("/settings").text
+        for key in self._SECTIONS:
+            self.assertIn(f'href="/settings?section={key}"', html, key)
+
+    def test_app_colour_is_open_by_default(self) -> None:
+        self.log_in()
+        self.assertEqual(
+            self._open_sections(self.client.get("/settings").text), ["colour"]
+        )
+
+    def test_the_chosen_section_is_the_one_open(self) -> None:
+        self.log_in()
+        for key in self._SECTIONS:
+            html = self.client.get(f"/settings?section={key}").text
+            self.assertEqual(self._open_sections(html), [key], key)
+
+    def test_an_unknown_section_falls_back_to_app_colour(self) -> None:
+        self.log_in()
+        html = self.client.get("/settings?section=zzz").text
+        self.assertEqual(self._open_sections(html), ["colour"])
+
+    def test_every_section_is_still_in_the_page(self) -> None:
+        self.log_in()
+        html = self.client.get("/settings").text
+        for key in self._SECTIONS:
+            self.assertIn(f'id="section-{key}"', html, key)
+
+    def test_saving_returns_to_the_same_section(self) -> None:
+        self.log_in()
+        colour = self.client.post("/settings/colour", data={"colour": "Blue"})
+        self.assertEqual(colour.headers["location"], "/settings?section=colour")
+        person = self.client.post(
+            "/settings/people",
+            data={"name": "Alex", "role": "Adult", "colour": "#B04A17"},
+        )
+        self.assertEqual(person.headers["location"], "/settings?section=people")
+
+    def test_the_list_is_flexbox_with_a_phone_rule(self) -> None:
+        css = self.client.get("/static/app.css").text
+        self.assertIn(".settings-list", css)
+        self.assertIn(".settings-section.open", css)
+
+
+class SitesTest(_MealsTestCase):
+    """The household can add recipe sites the importer may read."""
+
+    _NEW = "https://www.example.org/recipes/curry"
+
+    def _import(self, url: str) -> int:
+        response = self.client.post("/recipes/import", data={"url": url})
+        return int(response.status_code)
+
+    def test_built_in_sites_are_listed_without_a_remove_button(self) -> None:
+        self.log_in()
+        html = self.client.get("/settings?section=sites").text
+        section = html.split('id="section-sites"', 1)[1].split("</section>")[0]
+        self.assertIn("www.bbcgoodfood.com", section)
+        self.assertNotIn('name="host" value="www.bbcgoodfood.com"', section)
+
+    def test_an_unlisted_site_is_refused_until_it_is_added(self) -> None:
+        self.log_in()
+        self.assertEqual(self._import(self._NEW), 400)
+        response = self.client.post(
+            "/settings/sites", data={"site": "www.example.org"}
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(
+            response.headers["location"], "/settings?section=sites"
+        )
+        self.assertEqual(self._import(self._NEW), 200)
+
+    def test_a_pasted_address_adds_just_its_site(self) -> None:
+        self.log_in()
+        self.client.post("/settings/sites", data={"site": self._NEW})
+        html = self.client.get("/settings?section=sites").text
+        self.assertIn("www.example.org", html)
+        self.assertNotIn("/recipes/curry", html)
+
+    def test_added_sites_show_on_the_import_page(self) -> None:
+        self.log_in()
+        self.client.post("/settings/sites", data={"site": "www.example.org"})
+        self.assertIn(
+            "www.example.org", self.client.get("/recipes/import").text
+        )
+
+    def test_a_bad_site_is_refused_with_a_reason(self) -> None:
+        self.log_in()
+        for bad in ("192.168.1.1", "localhost", ""):
+            response = self.client.post("/settings/sites", data={"site": bad})
+            self.assertEqual(response.status_code, 400, bad)
+            self.assertIn("site name", response.text, bad)
+
+    def test_remove_takes_a_site_away_again(self) -> None:
+        self.log_in()
+        self.client.post("/settings/sites", data={"site": "www.example.org"})
+        response = self.client.post(
+            "/settings/sites/remove", data={"host": "www.example.org"}
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(self._import(self._NEW), 400)
+
+    def test_added_sites_still_cannot_reach_private_addresses(self) -> None:
+        self.log_in()
+        self.client.post("/settings/sites", data={"site": "www.example.org"})
+        self.app.state.resolve = lambda _host: ["192.168.1.9"]
+        before = len(self.requests)
+        self.assertEqual(self._import(self._NEW), 400)
+        self.assertEqual(len(self.requests), before)
+
+    def test_site_routes_require_login(self) -> None:
+        for path in ("/settings/sites", "/settings/sites/remove"):
+            response = self.client.post(path, data={"site": "www.a.com"})
+            self.assertEqual(response.status_code, 303, path)
+            self.assertEqual(response.headers["location"], "/login", path)
+
+
 class PlanTest(_MealsTestCase):
     """Building a week by hand."""
 

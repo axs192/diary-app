@@ -11,6 +11,7 @@ when the connection is made. That is acceptable for a household app, but it
 is not a hardened defence against a hostile DNS server.
 """
 
+import dataclasses
 import html
 import html.parser
 import ipaddress
@@ -19,7 +20,7 @@ import re
 import socket
 import urllib.parse
 import urllib.robotparser
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from typing import Any
 
 import httpx
@@ -145,18 +146,29 @@ def draft_from_html(page: str, url: str) -> recipes.RecipeDraft:
     raise RecipeImportError(msg)
 
 
+@dataclasses.dataclass(frozen=True)
+class _Guard:
+    """Which sites may be fetched, and how host names are resolved."""
+
+    resolve: Callable[[str], list[str]]
+    allowed_hosts: Collection[str]
+
+
 def fetch_draft(
     url: str,
     client: httpx.Client,
     resolve: Callable[[str], list[str]] | None = None,
+    allowed_hosts: Collection[str] = ALLOWED_HOSTS,
 ) -> recipes.RecipeDraft:
     """Downloads one recipe page and reads its recipe.
 
     Args:
-        url: Web address of a page on one of ``ALLOWED_HOSTS``.
+        url: Web address of a page on one of ``allowed_hosts``.
         client: HTTP client to use; tests pass one with a mock transport.
         resolve: Turns a host name into IP addresses. Defaults to the
             system resolver.
+        allowed_hosts: Host names that may be fetched (also for redirects
+            and robots.txt). Defaults to the built-in ``ALLOWED_HOSTS``.
 
     Returns:
         A draft to review and save.
@@ -166,8 +178,8 @@ def fetch_draft(
             robots.txt forbids it, the page can't be fetched, or it holds
             no readable recipe.
     """
-    resolve = resolve or _system_resolve
-    reply, final_url = _request(url.strip(), client, resolve, robots=True)
+    guard = _Guard(resolve or _system_resolve, allowed_hosts)
+    reply, final_url = _request(url.strip(), client, guard, robots=True)
     if reply.status_code != httpx.codes.OK:
         msg = f"The site answered with an error ({reply.status_code})."
         raise RecipeImportError(msg)
@@ -177,15 +189,15 @@ def fetch_draft(
 def _request(
     url: str,
     client: httpx.Client,
-    resolve: Callable[[str], list[str]],
+    guard: _Guard,
     *,
     robots: bool,
 ) -> tuple[httpx.Response, str]:
     """GETs a URL, re-checking every redirect hop; returns reply and URL."""
     for _ in range(_MAX_REDIRECTS + 1):
-        _check_address(url, resolve)
+        _check_address(url, guard)
         if robots:
-            _check_robots(url, client, resolve)
+            _check_robots(url, client, guard)
         reply = _get_once(url, client)
         if reply.status_code not in _REDIRECT_STATUSES:
             return reply, url
@@ -197,20 +209,20 @@ def _request(
     raise RecipeImportError(msg)
 
 
-def _check_address(url: str, resolve: Callable[[str], list[str]]) -> None:
+def _check_address(url: str, guard: _Guard) -> None:
     parts = urllib.parse.urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         msg = "Use a web address starting http:// or https://."
         raise RecipeImportError(msg)
     host = parts.hostname
-    if host not in ALLOWED_HOSTS or parts.username or parts.password:
-        sites = ", ".join(sorted(ALLOWED_HOSTS))
+    if host not in guard.allowed_hosts or parts.username or parts.password:
+        sites = ", ".join(sorted(guard.allowed_hosts))
         msg = f"That site isn't supported for import. Supported: {sites}."
         raise RecipeImportError(msg)
     try:
         addresses = [str(ipaddress.ip_address(host))]
     except ValueError:
-        addresses = resolve(host)
+        addresses = guard.resolve(host)
     if not addresses:
         msg = "That web address could not be found."
         raise RecipeImportError(msg)
@@ -237,12 +249,10 @@ def _system_resolve(host: str) -> list[str]:
     return [str(info[4][0]) for info in infos]
 
 
-def _check_robots(
-    url: str, client: httpx.Client, resolve: Callable[[str], list[str]]
-) -> None:
+def _check_robots(url: str, client: httpx.Client, guard: _Guard) -> None:
     parts = urllib.parse.urlsplit(url)
     robots_url = f"{parts.scheme}://{parts.netloc}/robots.txt"
-    reply, _ = _request(robots_url, client, resolve, robots=False)
+    reply, _ = _request(robots_url, client, guard, robots=False)
     if reply.status_code >= httpx.codes.INTERNAL_SERVER_ERROR:
         msg = (
             "The site's robots.txt could not be read, so the page was skipped."
