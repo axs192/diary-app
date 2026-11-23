@@ -21,7 +21,7 @@ import socket
 import urllib.parse
 import urllib.robotparser
 from collections.abc import Callable, Collection, Iterator
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 
@@ -146,6 +146,14 @@ def draft_from_html(page: str, url: str) -> recipes.RecipeDraft:
     raise RecipeImportError(msg)
 
 
+class _Reply(NamedTuple):
+    """What a fetch returned: status, headers and the decoded body text."""
+
+    status_code: int
+    headers: httpx.Headers
+    text: str
+
+
 @dataclasses.dataclass(frozen=True)
 class _Guard:
     """Which sites may be fetched, and how host names are resolved."""
@@ -192,7 +200,7 @@ def _request(
     guard: _Guard,
     *,
     robots: bool,
-) -> tuple[httpx.Response, str]:
+) -> tuple[_Reply, str]:
     """GETs a URL, re-checking every redirect hop; returns reply and URL."""
     for _ in range(_MAX_REDIRECTS + 1):
         _check_address(url, guard)
@@ -291,7 +299,7 @@ def _check_robots(url: str, client: httpx.Client, guard: _Guard) -> None:
         raise RecipeImportError(msg)
 
 
-def _get_once(url: str, client: httpx.Client) -> httpx.Response:
+def _get_once(url: str, client: httpx.Client) -> _Reply:
     """One GET with a timeout and a size cap; never follows redirects."""
     try:
         with client.stream(
@@ -302,22 +310,27 @@ def _get_once(url: str, client: httpx.Client) -> httpx.Response:
             follow_redirects=False,
         ) as response:
             body = b""
+            # iter_bytes() undoes gzip/deflate, so the cap applies to the
+            # decompressed size (a small download can't expand without limit).
             for chunk in response.iter_bytes():
                 body += chunk
                 if len(body) > _MAX_BYTES:
                     msg = "That page is too large to import."
                     raise RecipeImportError(msg)
-            return httpx.Response(
+            encoding = response.charset_encoding or "utf-8"
+            return _Reply(
                 response.status_code,
-                headers=response.headers,
-                content=body,
-                request=response.request,
+                response.headers,
+                body.decode(encoding, errors="replace"),
             )
     except httpx.TimeoutException as exc:
         msg = "The site took too long to answer."
         raise RecipeImportError(msg) from exc
     except httpx.HTTPError as exc:
         msg = "Couldn't reach that page."
+        raise RecipeImportError(msg) from exc
+    except LookupError as exc:  # a character set Python doesn't know
+        msg = "The page uses a text encoding we can't read."
         raise RecipeImportError(msg) from exc
 
 
