@@ -226,7 +226,9 @@ def _canonical_url(url: str) -> str:
     if parts.port is not None:
         netloc = f"{host}:{parts.port}"
     path = parts.path or "/"
-    return urllib.parse.urlunsplit((parts.scheme, netloc, path, parts.query, ""))
+    return urllib.parse.urlunsplit(
+        (parts.scheme, netloc, path, parts.query, "")
+    )
 
 
 def _check_address(url: str, guard: _Guard) -> None:
