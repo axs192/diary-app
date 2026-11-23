@@ -2,6 +2,7 @@
 
 import pathlib
 import tempfile
+import threading
 import unittest
 
 from diary_app import db
@@ -79,6 +80,50 @@ class ConnectTest(unittest.TestCase):
             )
             with self.assertRaises(db.MigrationError):
                 db.connect(folder / "x.db", migrations_dir=folder)
+
+
+class SettingTest(unittest.TestCase):
+    """get_setting / set_setting store small key-value preferences."""
+
+    def setUp(self) -> None:
+        self.conn = db.connect(":memory:")
+
+    def test_missing_setting_returns_the_default(self) -> None:
+        self.assertEqual(
+            db.get_setting(self.conn, "app_colour", "Green"), "Green"
+        )
+
+    def test_set_then_get_returns_the_value(self) -> None:
+        db.set_setting(self.conn, "app_colour", "Blue")
+        self.assertEqual(
+            db.get_setting(self.conn, "app_colour", "Green"), "Blue"
+        )
+
+    def test_setting_again_overwrites(self) -> None:
+        db.set_setting(self.conn, "app_colour", "Blue")
+        db.set_setting(self.conn, "app_colour", "Teal")
+        self.assertEqual(
+            db.get_setting(self.conn, "app_colour", "Green"), "Teal"
+        )
+
+
+class ThreadingTest(unittest.TestCase):
+    """A request's connection may be opened and used on different threads."""
+
+    def test_connection_works_from_another_thread(self) -> None:
+        conn = db.connect(":memory:")
+        errors: list[BaseException] = []
+
+        def use() -> None:
+            try:
+                conn.execute("SELECT 1").fetchone()
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        thread = threading.Thread(target=use)
+        thread.start()
+        thread.join()
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":

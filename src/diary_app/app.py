@@ -1,38 +1,20 @@
 """FastAPI application factory for the diary backend."""
 
 import logging
+import pathlib
 
 import fastapi
 import fastapi.responses
+import fastapi.staticfiles
+from starlette.middleware import sessions
 
-from diary_app import config
+from diary_app import config, security
+from diary_app.web import pages
 
 _logger = logging.getLogger(__name__)
-
-# Plain HTML with no JavaScript: Safari on iOS 9 (iPad mini 1st gen) is the
-# target. The apple-mobile-web-app-* tags only take effect when the page is
-# added to the Home Screen, where they hide Safari's address bar and tabs.
-_HOME_HTML = """<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Diary</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Diary">
-<style>
-html, body { height: 100%; margin: 0; }
-body { background: #102a43; color: #f0f4f8; font-family: -apple-system,
-  Helvetica, Arial, sans-serif; text-align: center; }
-h1 { font-size: 64px; margin: 0; padding-top: 30%; }
-</style>
-</head>
-<body>
-<h1>Hello from diary-app</h1>
-</body>
-</html>
-"""
+_STATIC = pathlib.Path(__file__).parent / "web" / "static"
+# The kitchen iPad should stay logged in, so the cookie lasts a year.
+_SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
 
 
 def create_app(settings: config.Settings | None = None) -> fastapi.FastAPI:
@@ -55,20 +37,42 @@ def create_app(settings: config.Settings | None = None) -> fastapi.FastAPI:
         settings = config.Settings()
 
     logging.basicConfig(level=settings.log_level)
-    # Log only that the key exists: the value must never reach the logs.
-    _logger.info("Starting diary-app (api key configured)")
+    # Log only that credentials exist: values must never reach the logs.
+    _logger.info("Starting diary-app (credentials configured)")
 
     app = fastapi.FastAPI(title="diary-app")
+    app.state.database_path = settings.database_path
+    app.state.pin_checker = security.PinChecker(
+        settings.household_pin.get_secret_value()
+    )
+    # The home network is plain HTTP, so the cookie cannot be marked Secure;
+    # SameSite=Lax keeps it off cross-site form posts.
+    app.add_middleware(
+        sessions.SessionMiddleware,
+        secret_key=settings.session_secret.get_secret_value(),
+        session_cookie="diary_session",
+        max_age=_SESSION_MAX_AGE_SECONDS,
+        same_site="lax",
+        https_only=False,
+    )
+    app.mount(
+        "/static",
+        fastapi.staticfiles.StaticFiles(directory=_STATIC),
+        name="static",
+    )
+
+    @app.exception_handler(security.NotLoggedInError)
+    def redirect_to_login(
+        _request: fastapi.Request, _exc: security.NotLoggedInError
+    ) -> fastapi.responses.RedirectResponse:
+        return fastapi.responses.RedirectResponse("/login", status_code=303)
+
+    app.include_router(pages.router)
 
     @app.get("/")
     def read_root() -> dict[str, str]:
         """Returns a greeting."""
         return {"message": "Hello from diary-app"}
-
-    @app.get("/home", response_class=fastapi.responses.HTMLResponse)
-    def read_home() -> str:
-        """Returns the iPad-friendly home page as HTML."""
-        return _HOME_HTML
 
     @app.get("/health")
     def read_health() -> dict[str, str]:
@@ -78,6 +82,13 @@ def create_app(settings: config.Settings | None = None) -> fastapi.FastAPI:
     @app.get("/config-check")
     def read_config_check() -> dict[str, bool]:
         """Reports whether credentials are loaded, never their value."""
-        return {"api_key_configured": bool(settings.api_key.get_secret_value())}
+        return {
+            "household_pin_configured": bool(
+                settings.household_pin.get_secret_value()
+            ),
+            "session_secret_configured": bool(
+                settings.session_secret.get_secret_value()
+            ),
+        }
 
     return app

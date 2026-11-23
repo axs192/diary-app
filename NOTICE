@@ -27,3 +27,10 @@ The licence above covers the source code in this repository only.
 If recipe data from another source (for example TheMealDB or an open
 dataset) is ever added, its required attribution and licence will be listed
 here.
+
+Fonts
+-----
+src/diary_app/web/static/fonts/ contains the unmodified Ubuntu font family
+(Light, Regular, Medium, Bold), Copyright 2011 Canonical Ltd., licensed under
+the Ubuntu Font Licence 1.0 (see LICENCE.txt in that folder). The fonts stay
+under that licence; it does not apply to the rest of this project.

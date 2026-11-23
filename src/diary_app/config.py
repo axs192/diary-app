@@ -10,6 +10,7 @@ dotfiles.
 """
 
 import os
+import pathlib
 
 import pydantic
 import pydantic_settings
@@ -25,12 +26,18 @@ class Settings(pydantic_settings.BaseSettings):
     ``$CREDENTIALS_DIRECTORY``.
 
     Attributes:
-        api_key: Placeholder credential used to practise secret handling.
-            Stored as a ``SecretStr`` so it is masked in ``repr`` and logs.
+        household_pin: PIN the household types to open the app. Stored as a
+            ``SecretStr`` so it is masked in ``repr`` and logs.
+        session_secret: Key that signs the login cookie. Anyone holding it
+            can forge a login, so treat it like a password.
+        database_path: SQLite file. Production sets this to a path inside
+            ``/var/lib/diary-app``; the default suits local development.
         log_level: Standard library logging level name, e.g. ``"INFO"``.
     """
 
-    api_key: pydantic.SecretStr = pydantic.Field(min_length=1)
+    household_pin: pydantic.SecretStr = pydantic.Field(min_length=1)
+    session_secret: pydantic.SecretStr = pydantic.Field(min_length=16)
+    database_path: pathlib.Path = pathlib.Path("data/diary.db")
     log_level: str = "INFO"
 
     @classmethod

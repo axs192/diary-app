@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Diary · Settings{% endblock %}
+
+{% macro swatches(selected) %}
+<div class="row" role="radiogroup" aria-label="Colour">
+  {% for hex, label in palette %}
+  <label class="choice">
+    <input type="radio" name="colour" value="{{ hex }}"{% if hex == selected %} checked{% endif %}>
+    <span class="choice-body swatch" style="background: {{ hex }}"><span class="sr-only">{{ label }}</span></span>
+  </label>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="eyebrow">Settings</div>
+    <h1 class="title">People &amp; colours</h1>
+  </div>
+</div>
+
+<section class="card" aria-label="App colour">
+  <h2 class="section-title">App colour</h2>
+  <p class="muted">Used for buttons and the selected tab on every screen.</p>
+  <form method="post" action="/settings/colour">
+    <div class="row" role="radiogroup" aria-label="App colour">
+      {% for name, main in app_colours %}
+      <label class="choice">
+        <input type="radio" name="colour" value="{{ name }}"{% if name == app_colour %} checked{% endif %}>
+        <span class="choice-body option"><span class="swatch" style="background: {{ main }}"></span>{{ name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button class="btn btn-primary accent-bg" type="submit">Save colour</button>
+  </form>
+</section>
+
+<section aria-label="People">
+  <h2 class="section-title">People</h2>
+  <p class="muted">Each person's colour, and the Outlook category that will mark their events on the family calendar.</p>
+  {% for p in people %}
+  <form class="card person" method="post" action="/settings/people/{{ p.id }}">
+    <div class="row person-head">
+      <span class="avatar" style="background: {{ p.colour }}" aria-hidden="true">{{ p.name[:1]|upper }}</span>
+      <span class="role">{{ p.role }}</span>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label class="label" for="name-{{ p.id }}">Name</label>
+        <input class="input" id="name-{{ p.id }}" name="name" type="text" value="{{ p.name }}" maxlength="50">
+      </div>
+      <div class="field">
+        <label class="label" for="cat-{{ p.id }}">Outlook category</label>
+        <input class="input" id="cat-{{ p.id }}" name="outlook_category" type="text" value="{{ p.outlook_category }}" maxlength="50">
+      </div>
+    </div>
+    {{ swatches(p.colour) }}
+    <button class="btn" type="submit">Save {{ p.name }}</button>
+  </form>
+  {% endfor %}
+
+  <form class="card person" method="post" action="/settings/people">
+    <h3 class="section-title">Add a person</h3>
+    <div class="row">
+      <div class="field">
+        <label class="label" for="new-name">Name</label>
+        <input class="input" id="new-name" name="name" type="text" maxlength="50">
+      </div>
+      <div class="field">
+        <label class="label" for="new-role">Who</label>
+        <select class="input" id="new-role" name="role">
+          {% for role in roles if role != "Everyone" %}<option value="{{ role }}">{{ role }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label class="label" for="new-cat">Outlook category</label>
+        <input class="input" id="new-cat" name="outlook_category" type="text" maxlength="50">
+      </div>
+    </div>
+    {{ swatches(palette[0][0]) }}
+    <button class="btn btn-primary accent-bg" type="submit">Add person</button>
+  </form>
+</section>
+
+<section class="card" aria-label="Session">
+  <h2 class="section-title">This device</h2>
+  <form method="post" action="/logout">
+    <button class="btn" type="submit">Lock the diary</button>
+  </form>
+</section>
+{% endblock %}

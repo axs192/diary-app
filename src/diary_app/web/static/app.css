@@ -1,0 +1,235 @@
+/* Written for iOS 9 Safari (iPad mini 1st gen): flexbox and margins only.
+   No CSS grid, no flex "gap" (needs iOS 14.1). Rows use negative margins on
+   the container and positive margins on the children instead.
+   App-colour rules are written into each page by the server (see theme.py). */
+
+@font-face {
+  font-family: "Ubuntu";
+  font-weight: 300;
+  src: url("/static/fonts/Ubuntu-Light.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Ubuntu";
+  font-weight: 400;
+  src: url("/static/fonts/Ubuntu-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Ubuntu";
+  font-weight: 500;
+  src: url("/static/fonts/Ubuntu-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Ubuntu";
+  font-weight: 700;
+  src: url("/static/fonts/Ubuntu-Bold.ttf") format("truetype");
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: #F4F5F1;
+  color: #1C2321;
+  font-family: "Ubuntu", -apple-system, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+/* Top bar (iPad) */
+.topbar { background: #FFFFFF; border-bottom: 1px solid #E1E4DE; }
+.topbar-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 8px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
+  color: #1C2321;
+}
+.brand:hover { color: #1C2321; }
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  margin-right: 10px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-name { font-size: 22px; font-weight: 700; }
+.nav { display: flex; flex-wrap: wrap; }
+.nav-item {
+  min-height: 44px;
+  min-width: 44px;
+  margin-left: 4px;
+  padding: 0 14px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1C2321;
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.nav-item:hover { color: #1C2321; }
+.nav-item svg { margin-right: 8px; }
+
+/* Page */
+.page { max-width: 1240px; margin: 0 auto; padding: 28px 24px 40px; }
+.page-head { margin-bottom: 20px; }
+.eyebrow {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5B6661;
+}
+.title { margin: 0; font-size: 36px; font-weight: 700; line-height: 1.1; }
+.section-title { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
+.muted { color: #5B6661; font-size: 14px; margin: 0 0 12px; }
+.error { color: #9A3F14; font-weight: 500; margin: 0 0 12px; }
+
+/* Cards */
+.card {
+  background: #FFFFFF;
+  border: 1px solid #E1E4DE;
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.card-block { border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+.on-accent { color: #FFFFFF; }
+.on-accent-text { color: #FFFFFF; margin: 0; }
+
+/* Controls */
+.label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #5B6661;
+}
+.input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #D3D8D0;
+  border-radius: 10px;
+  background: #FAFBF8;
+  color: #1C2321;
+  font-family: inherit;
+  font-size: 16px; /* 16px stops iPhone zooming in on focus */
+}
+.btn {
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 18px;
+  border: 1px solid #D3D8D0;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #1C2321;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn-primary { border: 0; color: #FFFFFF; }
+
+/* Rows: negative margin on the row, positive on the children */
+.row { display: flex; flex-wrap: wrap; margin: -4px; }
+.row > * { margin: 4px; }
+.field { flex: 1 1 200px; min-width: 0; }
+
+/* Choices (radio buttons shown as swatches) */
+.choice { position: relative; display: block; cursor: pointer; }
+.choice input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.choice-body {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  border: 1px solid #E1E4DE;
+  border-radius: 12px;
+  background: #FFFFFF;
+}
+.choice input:checked + .choice-body { border: 2px solid #1C2321; }
+.choice input:focus + .choice-body { outline: 2px solid #1C2321; }
+.swatch { width: 44px; height: 44px; border-radius: 12px; }
+.option { padding: 4px 14px 4px 4px; font-size: 14px; font-weight: 500; }
+.option .swatch { width: 36px; height: 36px; border-radius: 9px; margin-right: 10px; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* People */
+.person-head { align-items: center; margin-bottom: 8px; }
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 18px;
+  font-weight: 700;
+}
+.role {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #5B6661;
+}
+
+/* Login */
+.login { max-width: 360px; margin: 0 auto; padding-top: 8%; }
+.login .title { text-align: center; margin-bottom: 20px; }
+
+/* Phone: the same pages, with the menu fixed along the bottom */
+@media (max-width: 600px) {
+  .topbar-inner { padding: 6px 16px; }
+  .page { padding: 20px 16px 96px; }
+  .title { font-size: 28px; }
+  .nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+    flex-wrap: nowrap;
+    background: #FFFFFF;
+    border-top: 1px solid #E1E4DE;
+    padding: 6px 8px;
+  }
+  .nav-item {
+    flex: 1 1 0;
+    min-height: 56px;
+    margin: 0 2px;
+    padding: 4px 0;
+    flex-direction: column;
+    font-size: 12px;
+  }
+  .nav-item svg { margin: 0 0 2px; }
+  .field { flex-basis: 100%; }
+}

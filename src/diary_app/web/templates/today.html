@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Diary · Today{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="eyebrow">Week {{ week }}</div>
+    <h1 class="title">{{ long_date }}</h1>
+  </div>
+</div>
+<section class="panel-accent card-block" aria-label="Kids' diary">
+  <h2 class="section-title on-accent">Kids' diary</h2>
+  <p class="on-accent-text">Today's and tomorrow's events for each child will appear here once the calendar is connected.</p>
+</section>
+<section class="card" aria-label="Coming up">
+  <h2 class="section-title">Coming up</h2>
+  <p class="muted">Nothing to show yet. Meals, shopping and the family calendar arrive in the next updates.</p>
+</section>
+{% endblock %}

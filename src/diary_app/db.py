@@ -43,7 +43,11 @@ def connect(
     Raises:
         MigrationError: If a migration script fails.
     """
-    conn = sqlite3.connect(str(path), isolation_level=None)
+    # A web request's connection can be opened and used on different worker
+    # threads, but only one at a time, so SQLite's thread check is not needed.
+    conn = sqlite3.connect(
+        str(path), isolation_level=None, check_same_thread=False
+    )
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute(f"PRAGMA busy_timeout = {_BUSY_TIMEOUT_MS}")
@@ -81,3 +85,34 @@ def _apply(
             conn.execute("ROLLBACK")
         msg = f"Migration {script.name} failed: {exc}"
         raise MigrationError(msg) from exc
+
+
+def get_setting(conn: sqlite3.Connection, key: str, default: str) -> str:
+    """Reads a stored preference.
+
+    Args:
+        conn: Open database connection.
+        key: Setting name, e.g. ``"app_colour"``.
+        default: Returned when the setting has never been saved.
+
+    Returns:
+        The saved value, or ``default``.
+    """
+    row = conn.execute("SELECT value FROM setting WHERE key = ?", (key,))
+    found = row.fetchone()
+    return found["value"] if found else default
+
+
+def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Saves a preference, replacing any earlier value.
+
+    Args:
+        conn: Open database connection.
+        key: Setting name.
+        value: Text to store.
+    """
+    conn.execute(
+        "INSERT INTO setting (key, value) VALUES (?, ?)"
+        " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
