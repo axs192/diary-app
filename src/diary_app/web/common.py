@@ -6,6 +6,7 @@ redirect, so the pages work on iOS 9 Safari without JavaScript.
 
 import pathlib
 import sqlite3
+import urllib.parse
 from collections.abc import Iterator
 from typing import Annotated
 
@@ -94,7 +95,14 @@ def back_to(url: str) -> responses.RedirectResponse:
         ValueError: If ``url`` could lead off this site (so a request value
             can never turn a redirect into an open redirect).
     """
-    if not url.startswith("/") or url.startswith(("//", "/\\")):
+    parts = urllib.parse.urlsplit(url.replace("\\", ""))
+    # Browsers read "/\\host" like "//host", so refuse both outright.
+    if (
+        parts.scheme
+        or parts.netloc
+        or not url.startswith("/")
+        or url.startswith(("//", "/\\"))
+    ):
         msg = f"Not a local path: {url!r}"
         raise ValueError(msg)
     return responses.RedirectResponse(url, status_code=303)
