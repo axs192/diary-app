@@ -1,5 +1,6 @@
 """Tests for the diary_app.recipe_import public interface."""
 
+import gzip
 import json
 import unittest
 from collections.abc import Callable
@@ -248,6 +249,46 @@ class FetchDraftTest(unittest.TestCase):
         client, _seen = _client(_site())
         draft = recipe_import.fetch_draft(_URL, client, _resolver())
         self.assertEqual(draft.name, "Easy curry")
+
+    def test_reads_compressed_pages_and_robots_txt(self) -> None:
+        # Real sites send gzip; the mock sites above don't, which hid a bug.
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = (
+                "User-agent: *\nAllow: /"
+                if request.url.path == "/robots.txt"
+                else _page(_RECIPE)
+            )
+            return httpx.Response(
+                200,
+                content=gzip.compress(body.encode()),
+                headers={
+                    "content-encoding": "gzip",
+                    "content-type": "text/html; charset=utf-8",
+                },
+            )
+
+        client, _seen = _client(handler)
+        draft = recipe_import.fetch_draft(_URL, client, _resolver())
+        self.assertEqual(draft.name, "Easy curry")
+
+    def test_reads_the_pages_declared_character_set(self) -> None:
+        block = json.dumps(
+            {**_RECIPE, "name": "Crème brûlée"}, ensure_ascii=False
+        )
+        page = f'<script type="application/ld+json">{block}</script>'
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/robots.txt":
+                return httpx.Response(404)
+            return httpx.Response(
+                200,
+                content=page.encode("latin-1"),
+                headers={"content-type": "text/html; charset=latin-1"},
+            )
+
+        client, _seen = _client(handler)
+        draft = recipe_import.fetch_draft(_URL, client, _resolver())
+        self.assertEqual(draft.name, "Crème brûlée")
 
     def test_sends_a_generic_user_agent(self) -> None:
         agents: list[str] = []
