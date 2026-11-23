@@ -3,6 +3,7 @@
 import json
 import unittest
 from collections.abc import Callable
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -201,6 +202,10 @@ class DraftFromHtmlTest(unittest.TestCase):
             recipe_import.draft_from_html(_page(recipe), _URL)
 
 
+def _hosts(urls: list[str]) -> set[str | None]:
+    return {urlsplit(u).hostname for u in urls}
+
+
 _PUBLIC = ["93.184.216.34"]
 
 
@@ -330,7 +335,7 @@ class FetchDraftTest(unittest.TestCase):
         client, seen = _client(handler)
         with self.assertRaises(recipe_import.RecipeImportError):
             recipe_import.fetch_draft(_URL, client, _resolver())
-        self.assertFalse([u for u in seen if "example.org" in u])
+        self.assertNotIn("example.org", _hosts(seen))
 
     def test_extra_allowed_hosts_can_be_passed_in(self) -> None:
         client, _seen = _client(_site())
@@ -373,7 +378,7 @@ class FetchDraftTest(unittest.TestCase):
                 _resolver(),
                 allowed_hosts={"www.example.org"},
             )
-        self.assertFalse([u for u in seen if "other.org" in u])
+        self.assertNotIn("other.org", _hosts(seen))
 
     def test_refuses_an_ip_address_in_the_url(self) -> None:
         client, seen = _client(_site())
@@ -397,7 +402,9 @@ class FetchDraftTest(unittest.TestCase):
         with self.assertRaises(recipe_import.RecipeImportError) as caught:
             recipe_import.fetch_draft(_URL, client, _resolver())
         self.assertIn("robots", str(caught.exception).lower())
-        self.assertFalse([u for u in seen if "/recipes/" in u])
+        self.assertFalse(
+            [u for u in seen if urlsplit(u).path.startswith("/recipes/")]
+        )
 
     def test_missing_robots_txt_allows_the_fetch(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
@@ -472,7 +479,7 @@ class FetchDraftTest(unittest.TestCase):
         resolver = _resolver({"internal.lan": ["192.168.1.5"]})
         with self.assertRaises(recipe_import.RecipeImportError):
             recipe_import.fetch_draft(_URL, client, resolver)
-        self.assertFalse([u for u in seen if "internal.lan" in u])
+        self.assertNotIn("internal.lan", _hosts(seen))
 
     def test_redirect_to_a_non_web_scheme_is_refused(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
