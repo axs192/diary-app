@@ -1,0 +1,29 @@
+diary-app
+Copyright (C) 2026 the diary-app authors
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or (at your
+option) any later version. See the LICENSE file for the full text.
+
+Third-party content
+-------------------
+The licence above covers the source code in this repository only.
+
+* This repository contains no recipes, recipe text or images from BBC Good
+  Food or from any other website.
+* diary-app can import a recipe from a web address you give it, for your own
+  private household use (for example to plan your family's meals). Recipe
+  content belongs to its owners and is not covered by the licence above. You
+  are responsible for complying with the terms of use and robots.txt of any
+  site you import from. Do not republish imported recipes.
+* diary-app is not affiliated with, endorsed by or sponsored by the BBC or
+  BBC Good Food. "BBC" and "BBC Good Food" are trademarks of their owners and
+  are named only to describe a site recipes may be imported from.
+* No bulk scraper for any third-party site is shipped with this project.
+* Your database and any imported recipes live on your own server and are
+  excluded from version control (see .gitignore).
+
+If recipe data from another source (for example TheMealDB or an open
+dataset) is ever added, its required attribution and licence will be listed
+here.

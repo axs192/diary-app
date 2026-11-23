@@ -3,6 +3,8 @@ name = "diary-app"
 version = "0.1.0"
 description = "Family diary: meal plans, shopping lists and calendars (spike)."
 readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.165.0",

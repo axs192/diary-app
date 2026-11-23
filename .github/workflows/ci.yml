@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   check:
+    # GitHub-hosted: free for public repositories.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

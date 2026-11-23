@@ -4,6 +4,13 @@ Family diary backend: weekly meal plans, shopping lists and per-person
 calendars, shown on an iPad. This repo is currently a **spike**: a
 hello-world FastAPI app used to prove the deployment pipeline.
 
+## Licence
+
+GNU Affero General Public License v3.0 or later (`AGPL-3.0-or-later`); see
+[LICENSE](LICENSE). The licence covers the code only. See
+[NOTICE](NOTICE) for third-party content (including recipes imported from
+sites such as BBC Good Food, which stay the property of their owners).
+
 ## Local development
 
 Requires [uv](https://docs.astral.sh/uv/).
@@ -55,7 +62,7 @@ runuser -u diary -- git clone https://github.com/axs192/diary-app /opt/diary-app
 
 install -d -m 0750 -o root -g diary /etc/diary-app
 install -m 0640 -o root -g diary /opt/diary-app/deploy/diary-app.env.example /etc/diary-app/diary-app.env
-$EDITOR /etc/diary-app/diary-app.env              # set the real API_KEY
+/opt/diary-app/deploy/creds.sh api_key            # encrypted secret; prompts for the value
 
 cp /opt/diary-app/deploy/diary-app.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now diary-app
@@ -72,9 +79,14 @@ This fetches `origin/main`, hard-resets the checkout, runs `uv sync --frozen
 
 ### Credentials
 
-Secrets live in `/etc/diary-app/diary-app.env` (mode `0640`, `root:diary`),
-loaded by systemd's `EnvironmentFile=`. The file is outside the git checkout,
-so deploys never overwrite it. To rotate: edit the file, then
-`systemctl restart diary-app`. The app fails to start if `API_KEY` is
+Secrets are [systemd credentials](docs/systemd-credentials.md): encrypted
+files in `/etc/diary-app/creds/` (outside the git checkout, so deploys never
+touch them), decrypted by systemd into a private directory only the service
+can see. Create or rotate one with `sudo deploy/creds.sh <name> [--force]`,
+then `systemctl restart diary-app`. The app fails to start if `api_key` is
 missing, and `GET /config-check` reports whether it is set without ever
-returning the value.
+returning the value. Non-secret settings stay in
+`/etc/diary-app/diary-app.env`. **Upgrading an existing install?** Follow
+the step-by-step guide in [docs/systemd-credentials.md](docs/systemd-credentials.md).
+
+Local development still uses a git-ignored `.env` file (dummy values only).
