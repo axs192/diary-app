@@ -12,7 +12,8 @@ EnvironmentFile=/etc/diary-app/diary-app.env
 # Secrets: encrypted at rest, decrypted by systemd into $CREDENTIALS_DIRECTORY
 # for this service only. Create each with deploy/creds.sh; the name before the
 # colon must match the setting name. See docs/systemd-credentials.md.
-LoadCredentialEncrypted=api_key:/etc/diary-app/creds/api_key.cred
+LoadCredentialEncrypted=household_pin:/etc/diary-app/creds/household_pin.cred
+LoadCredentialEncrypted=session_secret:/etc/diary-app/creds/session_secret.cred
 # Writable /var/lib/diary-app for the database (survives deploys).
 StateDirectory=diary-app
 StateDirectoryMode=0700

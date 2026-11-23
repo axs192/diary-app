@@ -21,8 +21,9 @@ Plain, non-secret settings (like `LOG_LEVEL`) stay in `/etc/diary-app/diary-app.
    (`/var/lib/systemd/credential.secret`, root-only).
 2. `diary-app.service` has `LoadCredentialEncrypted=<name>:/etc/diary-app/creds/<name>.cred`.
    At start, systemd decrypts it into a private directory and sets `$CREDENTIALS_DIRECTORY`.
-3. `diary_app.config.Settings` reads that directory: a file called `api_key` fills the
-   `api_key` setting. If the credential is missing, the app refuses to start.
+3. `diary_app.config.Settings` reads that directory: a file called `household_pin` fills the
+   `household_pin` setting, and likewise `session_secret`. If a credential is missing, the
+   app refuses to start.
 
 The credential name, the unit line and the setting name must all match.
 
@@ -33,16 +34,32 @@ systemctl --version | head -1     # need systemd 250 or newer (Debian 12 has 252
 sudo systemd-creds has-tpm2       # "no" is expected in an LXC; the host key is used instead
 ```
 
-## Step 1: create the credential
+## Step 1: create the credentials
+
+Two secrets: the PIN you type to open the diary, and a random key that signs the login cookie.
 
 ```bash
-sudo /opt/diary-app/deploy/creds.sh api_key
+sudo /opt/diary-app/deploy/creds.sh household_pin
+sudo /opt/diary-app/deploy/creds.sh session_secret --generate
 ```
 
-It prompts twice without echoing. For a random value (e.g. a cookie-signing secret) add
-`--generate`. It refuses to overwrite an existing file unless you add `--force`.
+The first prompts twice without echoing. `--generate` makes a random value you never need to see. It refuses to overwrite an existing file unless you add `--force`.
 
-## Step 2: install the updated unit and restart
+## Step 2: tidy up the old placeholder and set the database path
+
+The earlier spike used an `api_key` secret. Delete its plain-text line (if still there) and the
+old credential file, and point the app at its state directory:
+
+```bash
+sudo $EDITOR /etc/diary-app/diary-app.env     # delete any API_KEY line; add
+                                              # DATABASE_PATH=/var/lib/diary-app/diary.db
+sudo rm -f /etc/diary-app/creds/api_key.cred
+```
+
+The environment wins over credentials, so a leftover `HOUSEHOLD_PIN=` line there would silently
+be used instead of the encrypted one.
+
+## Step 3: install the updated unit and restart
 
 ```bash
 sudo cp /opt/diary-app/deploy/diary-app.service /etc/systemd/system/
@@ -53,22 +70,12 @@ sudo systemctl restart diary-app
 (`deploy.sh` restarts the service but does not copy the unit file: that is deliberate, so
 unit changes are a conscious step.)
 
-## Step 3: move the old plain-text secret out
-
-The environment wins over credentials, so the old `API_KEY=` line would silently keep being
-used. Remove it and restart:
-
-```bash
-sudo $EDITOR /etc/diary-app/diary-app.env     # delete the API_KEY line
-sudo systemctl restart diary-app
-```
-
 ## Step 4: verify
 
 ```bash
 sudo systemctl status diary-app --no-pager         # active (running)
-curl -s http://127.0.0.1:8000/config-check         # {"api_key_configured":true}
-sudo systemctl show diary-app -p Environment       # no API_KEY in the output
+curl -s http://127.0.0.1:8000/config-check         # both values true
+sudo systemctl show diary-app -p Environment       # no PIN or secret in the output
 sudo ls -l /etc/diary-app/creds                    # *.cred, mode 0600, root
 sudo systemd-analyze security diary-app --no-pager | tail -3   # exposure score
 ```
@@ -80,9 +87,14 @@ machine, or a credential that was never created.
 ## Rotating
 
 ```bash
-sudo /opt/diary-app/deploy/creds.sh api_key --force
+sudo /opt/diary-app/deploy/creds.sh household_pin --force
 sudo systemctl restart diary-app
 ```
+
+Devices that are already logged in stay logged in after a PIN change, because the login
+cookie is signed with `session_secret`, not the PIN. If the PIN has leaked, rotate that too
+(`creds.sh session_secret --generate --force`) before restarting: every device is then logged
+out and must enter the new PIN.
 
 ## Things worth knowing
 

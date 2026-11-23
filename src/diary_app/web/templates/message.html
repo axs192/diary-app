@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Diary · Problem{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 class="title">That didn't work</h1>
+  <p class="error" role="alert">{{ message }}</p>
+  <a class="btn" href="{{ back }}">Go back</a>
+</div>
+{% endblock %}

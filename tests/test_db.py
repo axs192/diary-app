@@ -2,6 +2,7 @@
 
 import pathlib
 import tempfile
+import threading
 import unittest
 
 from diary_app import db
@@ -79,6 +80,89 @@ class ConnectTest(unittest.TestCase):
             )
             with self.assertRaises(db.MigrationError):
                 db.connect(folder / "x.db", migrations_dir=folder)
+
+
+class ConcurrencyAndPathTest(unittest.TestCase):
+    """Parallel requests and fresh checkouts must not break connect."""
+
+    def test_parallel_connects_on_a_fresh_database_all_succeed(self) -> None:
+        workers = 8
+        barrier = threading.Barrier(workers)
+        errors: list[BaseException] = []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "diary.db"
+
+            def open_db() -> None:
+                try:
+                    barrier.wait()
+                    db.connect(path).close()
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(exc)
+
+            threads = [threading.Thread(target=open_db) for _ in range(workers)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            conn = db.connect(path)
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+            people = conn.execute("SELECT COUNT(*) FROM person").fetchone()[0]
+            conn.close()
+
+        self.assertEqual(errors, [])
+        self.assertGreaterEqual(version, 2)
+        self.assertEqual(people, 1)  # the seed row was inserted exactly once
+
+    def test_connect_creates_a_missing_parent_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "data" / "nested" / "diary.db"
+            db.connect(path).close()
+            self.assertTrue(path.exists())
+
+
+class SettingTest(unittest.TestCase):
+    """get_setting / set_setting store small key-value preferences."""
+
+    def setUp(self) -> None:
+        self.conn = db.connect(":memory:")
+
+    def test_missing_setting_returns_the_default(self) -> None:
+        self.assertEqual(
+            db.get_setting(self.conn, "app_colour", "Green"), "Green"
+        )
+
+    def test_set_then_get_returns_the_value(self) -> None:
+        db.set_setting(self.conn, "app_colour", "Blue")
+        self.assertEqual(
+            db.get_setting(self.conn, "app_colour", "Green"), "Blue"
+        )
+
+    def test_setting_again_overwrites(self) -> None:
+        db.set_setting(self.conn, "app_colour", "Blue")
+        db.set_setting(self.conn, "app_colour", "Teal")
+        self.assertEqual(
+            db.get_setting(self.conn, "app_colour", "Green"), "Teal"
+        )
+
+
+class ThreadingTest(unittest.TestCase):
+    """A request's connection may be opened and used on different threads."""
+
+    def test_connection_works_from_another_thread(self) -> None:
+        conn = db.connect(":memory:")
+        errors: list[BaseException] = []
+
+        def use() -> None:
+            try:
+                conn.execute("SELECT 1").fetchone()
+            except Exception as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        thread = threading.Thread(target=use)
+        thread.start()
+        thread.join()
+        self.assertEqual(errors, [])
 
 
 if __name__ == "__main__":
