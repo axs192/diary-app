@@ -11,6 +11,19 @@ secrets/
 credentials*
 *.secret
 
+# systemd encrypted credentials (bound to one machine, but still keep out)
+*.cred
+
+# --- User data: never publish a family's database or imported recipes ---
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+recipes-import/
+
 # --- Claude / AI tooling ---
 .claude/
 .claude.json

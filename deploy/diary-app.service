@@ -7,8 +7,15 @@ Wants=network-online.target
 User=diary
 Group=diary
 WorkingDirectory=/opt/diary-app
-# Credentials live outside the git checkout so deploys never overwrite them.
+# Plain (non-secret) settings; outside the git checkout so deploys keep them.
 EnvironmentFile=/etc/diary-app/diary-app.env
+# Secrets: encrypted at rest, decrypted by systemd into $CREDENTIALS_DIRECTORY
+# for this service only. Create each with deploy/creds.sh; the name before the
+# colon must match the setting name. See docs/systemd-credentials.md.
+LoadCredentialEncrypted=api_key:/etc/diary-app/creds/api_key.cred
+# Writable /var/lib/diary-app for the database (survives deploys).
+StateDirectory=diary-app
+StateDirectoryMode=0700
 ExecStart=/opt/diary-app/.venv/bin/uvicorn --factory diary_app.app:create_app --host 0.0.0.0 --port 8000
 Restart=on-failure
 RestartSec=3
