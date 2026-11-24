@@ -19,5 +19,5 @@ def assert_only_app_script(
         markup: The page (or stylesheet) text to check.
         name: What is being checked, shown in the failure message.
     """
-    for tag in re.findall(r"<script\b[^>]*>", markup):
+    for tag in re.findall(r"<script\b[^>]*>", markup, flags=re.IGNORECASE):
         test.assertEqual(tag, APP_SCRIPT_TAG, name)

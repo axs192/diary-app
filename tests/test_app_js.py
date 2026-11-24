@@ -80,6 +80,25 @@ class ServedScriptTest(_AppJsTestCase):
         self.assertIn("download", source)  # so are downloads
 
 
+class OnlyAppScriptHelperTest(unittest.TestCase):
+    """The shared check must not be fooled by how a script tag is written."""
+
+    def test_other_scripts_are_caught_whatever_their_case(self) -> None:
+        for markup in (
+            "<script>alert(1)</script>",
+            "<SCRIPT>alert(1)</SCRIPT>",
+            '<ScRiPt src="/evil.js">',
+            "<script >x</script >",
+        ):
+            with self.assertRaises(AssertionError, msg=markup):
+                support.assert_only_app_script(self, markup, "x")
+
+    def test_the_app_script_passes(self) -> None:
+        support.assert_only_app_script(
+            self, f"<p>{support.APP_SCRIPT_TAG}</script></p>", "x"
+        )
+
+
 class Es5GuardTest(_AppJsTestCase):
     """The iPad's Safari 9 cannot run modern JavaScript."""
 
