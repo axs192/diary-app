@@ -1,0 +1,33 @@
+<details class="acc settings-section" id="section-calendar"{% if section == 'calendar' %} open{% endif %}>
+  <summary class="acc-head"><span class="acc-row"><span>Calendar</span>{{ chevron() }}</span></summary>
+  <div class="acc-body">
+  {% if not cal_banner.connected %}
+  <p class="muted">Outlook is not connected. Put the app registration's client id in <code>MS_CLIENT_ID</code> in <code>/etc/diary-app/diary-app.env</code> on the server, then run <code>diary-app login-outlook</code> (see <code>docs/outlook-setup.md</code>).</p>
+  {% else %}
+  <p class="muted">Pick the Outlook calendars to show. Write each event as a name, a colon, then what it is: <em>Mum : Swimming</em>. Anything else before the colon, like <em>Birthday : Nan</em>, becomes a tag for the whole family.</p>
+  {% if cal_banner.needs_sign_in %}
+  <p class="error">Outlook needs signing in again. On the server run <code>diary-app login-outlook</code>.</p>
+  {% elif cal_banner.problem %}
+  <p class="error">The last sync failed: {{ cal_banner.problem }}</p>
+  {% endif %}
+  <p class="muted">{{ cal_banner.synced }}. It also refreshes by itself every 15 minutes.</p>
+  {% if cal_choices %}
+  <form class="card" method="post" action="/settings/calendars">
+    {% for c in cal_choices %}
+    <label class="check-row">
+      <input type="checkbox" name="calendar" value="{{ c.id }}"{% if c.selected %} checked{% endif %}>
+      <span>{{ c.name }}</span>
+    </label>
+    {% endfor %}
+    <button class="btn btn-primary accent-bg" type="submit">Save calendars</button>
+  </form>
+  {% else %}
+  <p class="muted">No calendars yet: press Sync now to fetch the list.</p>
+  {% endif %}
+  <form method="post" action="/settings/calendar/sync">
+    <button class="btn" type="submit">Sync now</button>
+  </form>
+  {% endif %}
+  </div>
+</details>
+

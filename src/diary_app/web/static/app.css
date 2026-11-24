@@ -528,3 +528,34 @@ details[open] > .acc-head .chev { transform: rotate(90deg); }
 
 /* The HTML hidden attribute, kept working even where a rule sets display. */
 [hidden] { display: none !important; }
+
+/* Calendar week: days wrap like the Meals cards, but grow to fit events */
+.cal-days { margin-bottom: 8px; }
+.cal-days > .cal-day {
+  flex: 0 0 calc(25% - 8px);
+  box-sizing: border-box;
+  min-height: 160px;
+  margin-bottom: 8px;
+}
+@media (max-width: 900px) {
+  .cal-days > .cal-day { flex-basis: calc(33.333% - 8px); }
+}
+@media (max-width: 600px) {
+  .cal-days > .cal-day { flex-basis: calc(100% - 8px); min-height: 0; }
+}
+.cal-today { border: 2px solid #1C2321; }
+.cal-event {
+  margin: 0 0 10px;
+  padding: 2px 0 2px 10px;
+  border-left: 5px solid #8A5A00;
+}
+.cal-time { color: #5B6661; font-size: 13px; font-weight: 700; }
+.cal-title { font-size: 17px; font-weight: 700; line-height: 1.25; overflow-wrap: break-word; }
+.cal-chips { margin: 4px 0 0; }
+.cal-person { color: #FFFFFF; }
+.chip-kind { background: #ECEEEA; color: #2A302D; }
+.cal-empty { margin: 0; }
+.cal-status { margin: 0 0 12px; }
+.notice-warn { background: #FBE6DC; color: #7A2F0B; }
+.check-row { display: flex; align-items: center; min-height: 44px; font-size: 17px; }
+.check-row input { width: 22px; height: 22px; margin: 0 12px 0 0; }

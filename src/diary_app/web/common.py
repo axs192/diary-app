@@ -24,6 +24,7 @@ NAV = (
     ("Today", "/home"),
     ("Meals", "/meals"),
     ("Shopping", "/shopping"),
+    ("Calendar", "/calendar"),
     ("Settings", "/settings"),
 )
 APP_COLOUR_KEY = "app_colour"

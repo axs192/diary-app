@@ -109,6 +109,20 @@ the step-by-step guide in [docs/systemd-credentials.md](docs/systemd-credentials
 
 Local development still uses a git-ignored `.env` file (dummy values only).
 
+## Calendar (Outlook)
+
+The Calendar tab shows the family's Outlook.com calendar, one week at a time.
+A systemd timer copies the chosen calendars into the database every 15
+minutes (`diary-app sync-calendar`); the pages only read that copy, so they
+never wait for Microsoft. It is read-only. Who an event is for comes from its
+title, `Mum : Swimming` (a name, a colon, then what it is): another word
+before the colon, as in `Birthday : Nan`, becomes a tag for the whole family,
+and a title with no colon is listed under **Needs a name**. Outlook
+categories are not used, because the iPhone app cannot set them. Setup (app
+registration, `diary-app login-outlook`, the timer, choosing calendars) is in
+[docs/outlook-setup.md](docs/outlook-setup.md). With no `MS_CLIENT_ID` set the
+rest of the app works as before and the Calendar tab says it is not connected.
+
 ## Shopping and the pantry
 
 **Pantry.** Each item holds a real amount (4 tins, 3 onions, 500 g pasta, 1 jar

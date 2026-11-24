@@ -400,7 +400,7 @@ class ImportTest(_MealsTestCase):
 class SettingsLayoutTest(_MealsTestCase):
     """Settings is a stack of rows with chevrons; a row expands in place."""
 
-    _SECTIONS = ("colour", "people", "sites", "device")
+    _SECTIONS = ("colour", "people", "calendar", "sites", "device")
 
     def _open_sections(self, html: str) -> list[str]:
         return re.findall(

@@ -16,8 +16,35 @@ import pydantic
 import pydantic_settings
 
 
-class Settings(pydantic_settings.BaseSettings):
-    """Runtime configuration.
+class JobSettings(pydantic_settings.BaseSettings):
+    """The settings the web app and the background jobs share.
+
+    None of these is a secret, so the sync job (a systemd timer) can read
+    them from the environment without any credentials.
+
+    Attributes:
+        database_path: SQLite file. Production sets this to a path inside
+            ``/var/lib/diary-app``; the default suits local development.
+        log_level: Standard library logging level name, e.g. ``"INFO"``.
+        ms_client_id: Application (client) id of the Microsoft app
+            registration. Blank means Outlook is not connected: the
+            calendar pages say so and nothing else changes. It is not a
+            secret, but the real value is kept out of the public repo.
+        outlook_token_path: Private file holding the Outlook sign-in.
+            Production keeps it in ``/var/lib/diary-app``.
+        timezone: IANA time zone the household lives in; Outlook event
+            times are shown in it.
+    """
+
+    database_path: pathlib.Path = pathlib.Path("data/diary.db")
+    log_level: str = "INFO"
+    ms_client_id: str = ""
+    outlook_token_path: pathlib.Path = pathlib.Path("data/outlook_token.json")
+    timezone: str = "Europe/London"
+
+
+class Settings(JobSettings):
+    """Runtime configuration for the web app.
 
     Construction fails fast with a ``pydantic.ValidationError`` when a
     required credential is missing or empty, so a misconfigured deployment
@@ -30,9 +57,6 @@ class Settings(pydantic_settings.BaseSettings):
             ``SecretStr`` so it is masked in ``repr`` and logs.
         session_secret: Key that signs the login cookie. Anyone holding it
             can forge a login, so treat it like a password.
-        database_path: SQLite file. Production sets this to a path inside
-            ``/var/lib/diary-app``; the default suits local development.
-        log_level: Standard library logging level name, e.g. ``"INFO"``.
         error_banner: Whether pages show a small dismissible banner when
             their JavaScript fails. The iPad has no Web Inspector, so this is
             on by default; set ``ERROR_BANNER=false`` to hide it.
@@ -40,8 +64,6 @@ class Settings(pydantic_settings.BaseSettings):
 
     household_pin: pydantic.SecretStr = pydantic.Field(min_length=1)
     session_secret: pydantic.SecretStr = pydantic.Field(min_length=16)
-    database_path: pathlib.Path = pathlib.Path("data/diary.db")
-    log_level: str = "INFO"
     error_banner: bool = True
 
     @classmethod

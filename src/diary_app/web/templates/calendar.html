@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_macros.html" import acc_head %}
+{% block title %}Diary · Calendar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">Calendar</div>
+  <h1 class="title">Week of {{ monday.day }} {{ monday.strftime("%B") }}</h1>
+  <div class="row week-nav">
+    <a class="btn" href="{{ prev_week }}">&larr; Previous</a>
+    <a class="btn" href="/calendar">This week</a>
+    <a class="btn" href="{{ next_week }}">Next &rarr;</a>
+  </div>
+</div>
+
+{% if not banner.connected %}
+<p class="notice notice-warn" role="status">Outlook is not connected yet. See <a href="/settings?section=calendar">Settings &rsaquo; Calendar</a>.</p>
+{% else %}
+{% if banner.needs_sign_in %}
+<p class="notice notice-warn" role="status">Outlook needs signing in again. On the server run <code>diary-app login-outlook</code>. <a href="/settings?section=calendar">More in Settings</a>.</p>
+{% elif banner.problem %}
+<p class="notice notice-warn" role="status">The last sync failed: {{ banner.problem }} <a href="/settings?section=calendar">Settings</a></p>
+{% endif %}
+<p class="muted cal-status">{{ banner.synced }}</p>
+{% endif %}
+
+<div class="cal-days row">
+  {% for day, events in days %}
+  <article class="cal-day card{% if day == today %} cal-today{% endif %}" id="day-{{ day.isoformat() }}">
+    <h2 class="day-name">{{ day.strftime("%a") }} <span class="muted-inline">{{ day.day }} {{ day.strftime("%b") }}</span></h2>
+    {% for e in events %}
+    <div class="cal-event" style="border-left-color: {{ e.person.colour }}">
+      <div class="cal-time">{% if e.all_day %}All day{% else %}{{ e.start|clock }}&ndash;{{ e.end|clock }}{% endif %}</div>
+      <div class="cal-title">{{ e.title }}</div>
+      <ul class="chips cal-chips">
+        <li class="chip cal-person" style="background: {{ e.person.colour }}">{{ e.person.name }}</li>
+        {% if e.kind %}<li class="chip chip-kind">{{ e.kind }}</li>{% endif %}
+      </ul>
+    </div>
+    {% else %}
+    <p class="muted cal-empty">Nothing on.</p>
+    {% endfor %}
+  </article>
+  {% endfor %}
+</div>
+
+{% if needs_name %}
+<details class="acc" id="needs-name">
+  {{ acc_head("Needs a name", needs_name|length) }}
+  <div class="acc-body">
+    <p class="muted">These do not start with a name, like <em>Mum : Swimming</em>. Rename them in Outlook and they will move to the right person.</p>
+    <ul class="plain-list">
+      {% for e in needs_name %}
+      <li>{{ e.start.strftime("%a") }} {{ e.start.day }} {{ e.start.strftime("%b") }}: {{ e.title }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</details>
+{% endif %}
+{% endblock %}
