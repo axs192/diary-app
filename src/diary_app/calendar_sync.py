@@ -138,7 +138,10 @@ def parse_title(raw: str, people: Sequence[Person]) -> ParsedTitle:
     Raises:
         LookupError: If ``people`` has no ``Family`` (``Everyone``) person.
     """
-    family = next(p for p in people if p.role == "Everyone")
+    family = next((p for p in people if p.role == "Everyone"), None)
+    if family is None:
+        msg = "The diary has no Family person."
+        raise LookupError(msg)
     prefix, colon, rest = raw.partition(":")
     prefix, rest = prefix.strip(), rest.strip()
     if not colon or not prefix or not rest:
@@ -357,12 +360,16 @@ def _store_events(
     window_end: datetime.datetime,
 ) -> None:
     _drop_unselected_events(conn)
+    # The choice may have changed while we were waiting on Microsoft.
+    shown = {c.id for c in list_calendars(conn) if c.selected}
     conn.execute(
         "DELETE FROM event WHERE ends_at <= ?"
         " OR (starts_at < ? AND ends_at > ?)",
         (_iso(window_start), _iso(window_end), _iso(window_start)),
     )
     for calendar_id, events in fetched.items():
+        if calendar_id not in shown:
+            continue
         conn.executemany(
             "INSERT OR REPLACE INTO event"
             " (calendar_id, id, title, starts_at, ends_at, all_day)"

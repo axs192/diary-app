@@ -44,6 +44,10 @@ class _DbTestCase(unittest.TestCase):
 class ParseTitleTest(_DbTestCase):
     """``<Name> : <what>`` says who an event is for."""
 
+    def test_without_a_family_person_it_says_so(self) -> None:
+        with self.assertRaises(LookupError):
+            calendar_sync.parse_title("Mum : Swimming", [self.mum])
+
     def parse(self, raw: str) -> calendar_sync.ParsedTitle:
         return calendar_sync.parse_title(raw, people.list_people(self.conn))
 
@@ -385,6 +389,37 @@ class WeekViewTest(_SyncTestCase):
         self.assertEqual(event.person, self.family())
 
 
+_EVENTS_CALL = 2  # the first call lists calendars; the next reads events
+
+
+class _DeselectingToken(StaticToken):
+    """Unticks a calendar while the sync is waiting on Microsoft."""
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self.conn = conn
+        self.calls = 0
+
+    def token(self) -> str:
+        self.calls += 1
+        if self.calls == _EVENTS_CALL:
+            calendar_sync.set_selected(self.conn, [])
+        return super().token()
+
+
+class DeselectDuringSyncTest(_SyncTestCase):
+    """Choosing calendars while a sync is in flight."""
+
+    def test_a_calendar_unticked_mid_sync_stays_empty(self) -> None:
+        self.choose("cal")
+        client = outlook.GraphClient(
+            _DeselectingToken(self.conn),
+            self.graph.client(),
+            sleep=lambda _s: None,
+        )
+        self.assertTrue(calendar_sync.sync(self.conn, client, _NOW).ok)
+        self.assertEqual(self.week()[datetime.date(2030, 1, 8)], [])
+
+
 class StatusTest(_SyncTestCase):
     """What the pages say about the last sync."""
 
@@ -426,6 +461,13 @@ class StatusTest(_SyncTestCase):
         self.assertTrue(calendar_sync.status(self.conn).needs_sign_in)
         self.sync()
         self.assertFalse(calendar_sync.status(self.conn).needs_sign_in)
+
+    def test_a_malformed_event_is_reported_not_raised(self) -> None:
+        self.choose("cal")
+        self.graph.events["cal"][0]["start"] = {"dateTime": "soon"}
+        result = self.sync()
+        self.assertFalse(result.ok)
+        self.assertEqual(calendar_sync.status(self.conn).error, result.error)
 
     def test_a_failed_fetch_of_one_calendar_changes_nothing(self) -> None:
         self.choose("cal", "hols")

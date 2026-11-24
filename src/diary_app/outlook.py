@@ -10,13 +10,16 @@ the device-code flow against the ``consumers`` authority with delegated
 permissions (checked by a spike in November 2026).
 """
 
+import contextlib
 import dataclasses
 import datetime
+import fcntl
 import logging
 import os
 import pathlib
 import time
-from collections.abc import Callable
+import zoneinfo
+from collections.abc import Callable, Iterator
 from typing import Protocol
 
 import httpx
@@ -142,8 +145,9 @@ class GraphClient:
 
         Args:
             calendar_id: A ``CalendarInfo.id``.
-            start: Start of the range, in the client's time zone.
-            end: End of the range (exclusive), in the same zone.
+            start: Start of the range; a time with no zone is taken to be in
+                the client's time zone.
+            end: End of the range (exclusive), read the same way.
 
         Returns:
             The events, in Graph's order.
@@ -156,13 +160,20 @@ class GraphClient:
         rows = self._get_all(
             f"{_GRAPH}/me/calendars/{calendar_id}/calendarView",
             {
-                "startDateTime": start.isoformat(),
-                "endDateTime": end.isoformat(),
+                "startDateTime": self._with_offset(start),
+                "endDateTime": self._with_offset(end),
                 "$select": "id,subject,start,end,isAllDay",
                 "$top": _PAGE_SIZE,
             },
         )
         return [_raw_event(row) for row in rows]
+
+    def _with_offset(self, moment: datetime.datetime) -> str:
+        # Graph reads a time with no offset as UTC, which is an hour out in
+        # summer, so say which zone the caller meant.
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=zoneinfo.ZoneInfo(self._timezone))
+        return moment.isoformat()
 
     def _get_all(
         self, url: str, params: dict[str, str | int]
@@ -219,7 +230,11 @@ def _checked_json(response: httpx.Response) -> dict[str, object]:
     if status >= httpx.codes.BAD_REQUEST:
         msg = f"Microsoft answered with an error ({status})."
         raise OutlookError(msg)
-    body = response.json()
+    try:
+        body = response.json()
+    except ValueError as exc:
+        msg = "Microsoft sent something unexpected."
+        raise OutlookError(msg) from exc
     if not isinstance(body, dict):
         msg = "Microsoft sent something unexpected."
         raise OutlookError(msg)
@@ -227,13 +242,17 @@ def _checked_json(response: httpx.Response) -> dict[str, object]:
 
 
 def _raw_event(row: dict[str, object]) -> RawEvent:
-    return RawEvent(
-        id=str(row["id"]),
-        title=str(row.get("subject") or ""),
-        start=_graph_time(row["start"]),
-        end=_graph_time(row["end"]),
-        all_day=bool(row.get("isAllDay")),
-    )
+    try:
+        return RawEvent(
+            id=str(row["id"]),
+            title=str(row.get("subject") or ""),
+            start=_graph_time(row["start"]),
+            end=_graph_time(row["end"]),
+            all_day=bool(row.get("isAllDay")),
+        )
+    except (KeyError, ValueError) as exc:
+        msg = "Microsoft sent an event the diary could not read."
+        raise OutlookError(msg) from exc
 
 
 def _graph_time(value: object) -> datetime.datetime:
@@ -252,10 +271,41 @@ def write_private_file(path: pathlib.Path, text: str) -> None:
         text: Contents.
     """
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-        handle.write(text)
-    path.chmod(0o600)  # the mode above is ignored for an existing file
+    # Write beside the target, then rename over it: a reader sees the old
+    # file or the new one, never a half-written one.
+    scratch = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    descriptor = os.open(scratch, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        scratch.replace(path)
+    finally:
+        scratch.unlink(missing_ok=True)
+
+
+@contextlib.contextmanager
+def sign_in_lock(cache_path: pathlib.Path) -> Iterator[None]:
+    """Holds a lock while the saved sign-in is read, refreshed and rewritten.
+
+    The timer job and "Sync now" can run together. Without this, both could
+    refresh the same token and one would save over the other's newer one.
+
+    Args:
+        cache_path: The saved sign-in file; the lock file sits beside it.
+
+    Yields:
+        Nothing; the lock is released when the block ends.
+    """
+    cache_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_path = cache_path.with_name(f"{cache_path.name}.lock")
+    descriptor = os.open(lock_path, os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)  # closing releases the lock
 
 
 class MsalTokenSource:
@@ -283,6 +333,10 @@ class MsalTokenSource:
                 has expired or been revoked.
             OutlookError: If Microsoft could not be reached.
         """
+        with sign_in_lock(self._path):
+            return self._token_locked()
+
+    def _token_locked(self) -> str:
         if not self._path.exists():
             raise NeedsSignInError
         cache = msal.SerializableTokenCache()

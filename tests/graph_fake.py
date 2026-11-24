@@ -8,6 +8,7 @@ check headers and how often it was called.
 
 import dataclasses
 import datetime
+import zoneinfo
 
 import httpx
 
@@ -109,12 +110,8 @@ class FakeGraph:
         calendar_id = request.url.path.split("/calendars/")[1].split("/")[0]
         if calendar_id not in self.events:
             return httpx.Response(404, json={})
-        window_start = datetime.datetime.fromisoformat(
-            request.url.params["startDateTime"]
-        )
-        window_end = datetime.datetime.fromisoformat(
-            request.url.params["endDateTime"]
-        )
+        window_start = _london(request.url.params["startDateTime"])
+        window_end = _london(request.url.params["endDateTime"])
         inside = [
             e
             for e in self.events[calendar_id]
@@ -131,13 +128,30 @@ class FakeGraph:
         return httpx.Response(200, json=body)
 
 
+def _london(text: str) -> datetime.datetime:
+    """Reads a query time as Graph does: no offset means UTC.
+
+    Returns:
+        The same moment as London wall-clock time (naive), to compare with
+        the event times this fake serves.
+    """
+    moment = datetime.datetime.fromisoformat(text)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=datetime.UTC)
+    london = moment.astimezone(zoneinfo.ZoneInfo("Europe/London"))
+    return london.replace(tzinfo=None)
+
+
 def _overlaps(
     event: dict[str, object],
     window_start: datetime.datetime,
     window_end: datetime.datetime,
 ) -> bool:
-    start = datetime.datetime.fromisoformat(_time(event, "start"))
-    end = datetime.datetime.fromisoformat(_time(event, "end"))
+    try:
+        start = datetime.datetime.fromisoformat(_time(event, "start"))
+        end = datetime.datetime.fromisoformat(_time(event, "end"))
+    except (KeyError, ValueError):
+        return True  # a broken event is still sent; the client must cope
     return start < window_end and end > window_start
 
 
