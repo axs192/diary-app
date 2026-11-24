@@ -92,6 +92,7 @@ def settings_context(
     return {
         "cal_banner": _banner(request, conn),
         "cal_choices": calendar_sync.list_calendars(conn),
+        "cal_window": calendar_sync.sync_window(conn),
     }
 
 
@@ -131,6 +132,28 @@ def submit_calendar_choice(
 ) -> responses.RedirectResponse:
     """Chooses which Outlook calendars the diary shows."""
     calendar_sync.set_selected(conn, calendar or [])
+    return common.back_to(_SETTINGS_URL)
+
+
+@router.post("/settings/calendar/window", response_model=None)
+def submit_sync_window(
+    request: fastapi.Request,
+    conn: common.Db,
+    weeks_back: common.FormText = "",
+    weeks_ahead: common.FormText = "",
+) -> responses.Response:
+    """Saves how many weeks back and ahead the sync copies."""
+    try:
+        calendar_sync.set_sync_window(
+            conn, int(weeks_back.strip()), int(weeks_ahead.strip())
+        )
+    except ValueError as exc:
+        message = (
+            str(exc)
+            if str(exc).startswith("Weeks")
+            else "Weeks must be whole numbers."
+        )
+        return common.rejected(request, conn, message, _SETTINGS_URL)
     return common.back_to(_SETTINGS_URL)
 
 

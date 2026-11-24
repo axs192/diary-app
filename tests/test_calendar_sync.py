@@ -265,6 +265,73 @@ class SyncStorageTest(_SyncTestCase):
         self.assertEqual(ids, ["swim"])
 
 
+class SyncWindowTest(_SyncTestCase):
+    """How far back and ahead the sync copies is a setting."""
+
+    def add(self, event_id: str, day: str) -> None:
+        self.graph.events["cal"].append(
+            graph_event(
+                event_id,
+                f"Mum : {event_id}",
+                f"{day}T09:00:00",
+                f"{day}T10:00:00",
+            )
+        )
+
+    def stored(self) -> set[str]:
+        self.choose("cal")
+        self.sync()
+        return {r[0] for r in self.conn.execute("SELECT id FROM event")}
+
+    def test_by_default_it_is_a_week_back_and_two_weeks_ahead(self) -> None:
+        self.assertEqual(
+            calendar_sync.sync_window(self.conn),
+            calendar_sync.SyncWindow(weeks_back=1, weeks_ahead=2),
+        )
+
+    def test_this_week_and_next_are_kept_but_not_the_one_after(self) -> None:
+        self.add("next", "2030-01-15")
+        self.add("later", "2030-01-22")
+        self.assertEqual(self.stored(), {"swim", "next"})
+
+    def test_last_week_is_kept_but_not_the_one_before(self) -> None:
+        self.add("last", "2030-01-01")
+        self.add("older", "2029-12-24")
+        self.assertEqual(self.stored(), {"swim", "last"})
+
+    def test_a_longer_window_fetches_further_ahead(self) -> None:
+        self.add("later", "2030-01-22")
+        calendar_sync.set_sync_window(self.conn, weeks_back=1, weeks_ahead=4)
+        self.assertEqual(
+            calendar_sync.sync_window(self.conn),
+            calendar_sync.SyncWindow(weeks_back=1, weeks_ahead=4),
+        )
+        self.assertEqual(self.stored(), {"swim", "later"})
+
+    def test_no_weeks_back_leaves_last_week_out(self) -> None:
+        self.add("last", "2030-01-01")
+        calendar_sync.set_sync_window(self.conn, weeks_back=0, weeks_ahead=2)
+        self.assertEqual(self.stored(), {"swim"})
+
+    def test_a_shorter_window_drops_events_already_stored(self) -> None:
+        self.add("later", "2030-01-22")
+        calendar_sync.set_sync_window(self.conn, weeks_back=1, weeks_ahead=4)
+        self.assertEqual(self.stored(), {"swim", "later"})
+        calendar_sync.set_sync_window(self.conn, weeks_back=1, weeks_ahead=2)
+        self.sync()
+        ids = {r[0] for r in self.conn.execute("SELECT id FROM event")}
+        self.assertEqual(ids, {"swim"})
+
+    def test_silly_sizes_are_refused(self) -> None:
+        for back, ahead in ((-1, 2), (5, 2), (1, 0), (1, 13)):
+            with self.assertRaises(ValueError, msg=f"{back}, {ahead}"):
+                calendar_sync.set_sync_window(self.conn, back, ahead)
+        self.assertEqual(
+            calendar_sync.sync_window(self.conn),
+            calendar_sync.SyncWindow(weeks_back=1, weeks_ahead=2),
+        )
+
+
 class WeekViewTest(_SyncTestCase):
     """Placing events on the days of a week."""
 

@@ -24,6 +24,18 @@
   {% else %}
   <p class="muted">No calendars yet: press Sync now to fetch the list.</p>
   {% endif %}
+  <form class="card" method="post" action="/settings/calendar/window">
+    <div class="field">
+      <label class="label" for="weeks-back">Weeks back to keep</label>
+      <input class="input" id="weeks-back" name="weeks_back" type="number" min="0" max="4" value="{{ cal_window.weeks_back }}">
+    </div>
+    <div class="field">
+      <label class="label" for="weeks-ahead">Weeks ahead to keep</label>
+      <input class="input" id="weeks-ahead" name="weeks_ahead" type="number" min="1" max="12" value="{{ cal_window.weeks_ahead }}">
+    </div>
+    <p class="muted">Counted from this week. 2 ahead means this week and next. Used from the next sync.</p>
+    <button class="btn btn-primary accent-bg" type="submit">Save</button>
+  </form>
   <form method="post" action="/settings/calendar/sync">
     <button class="btn" type="submit">Sync now</button>
   </form>

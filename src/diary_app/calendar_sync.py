@@ -22,8 +22,12 @@ from diary_app.people import Person, list_people
 
 _logger = logging.getLogger(__name__)
 
-_WEEKS_BEFORE = 1
-_WEEKS_AFTER = 8
+_WEEKS_BACK = "calendar_weeks_back"
+_WEEKS_AHEAD = "calendar_weeks_ahead"
+_DEFAULT_BACK = 1
+_DEFAULT_AHEAD = 2
+_MAX_BACK = 4
+_MAX_AHEAD = 12
 _SYNCED_AT = "calendar_synced_at"
 _ERROR = "calendar_error"
 _NEEDS_SIGN_IN = "calendar_needs_sign_in"
@@ -106,6 +110,22 @@ class SyncResult:
 
 
 @dataclasses.dataclass(frozen=True)
+class SyncWindow:
+    """How much of the calendar the sync copies.
+
+    Weeks run Monday to Sunday and are counted from this week's Monday.
+
+    Attributes:
+        weeks_back: Whole weeks before this week to keep (0 to 4).
+        weeks_ahead: Weeks from this week's Monday to keep, this week
+            included, so 2 means this week and next (1 to 12).
+    """
+
+    weeks_back: int
+    weeks_ahead: int
+
+
+@dataclasses.dataclass(frozen=True)
 class SyncStatus:
     """What the pages say about the last sync.
 
@@ -161,8 +181,8 @@ def sync(
 
     Reads everything first and only then replaces the stored events in one
     step, so a failure part-way leaves the last good copy untouched. Also
-    refreshes the list of calendars to choose from. Covers last week to
-    eight weeks ahead. Never raises for Microsoft problems: they are
+    refreshes the list of calendars to choose from. Covers the weeks given
+    by ``sync_window``. Never raises for Microsoft problems: they are
     recorded in ``status`` and returned.
 
     Args:
@@ -173,12 +193,13 @@ def sync(
     Returns:
         How it went.
     """
+    window = sync_window(conn)
     monday = now.date() - datetime.timedelta(days=now.weekday())
     window_start = datetime.datetime.combine(
-        monday - datetime.timedelta(weeks=_WEEKS_BEFORE), datetime.time.min
+        monday - datetime.timedelta(weeks=window.weeks_back), datetime.time.min
     )
     window_end = datetime.datetime.combine(
-        monday + datetime.timedelta(weeks=_WEEKS_AFTER), datetime.time.min
+        monday + datetime.timedelta(weeks=window.weeks_ahead), datetime.time.min
     )
     chosen = {c.id for c in list_calendars(conn) if c.selected}
     try:
@@ -196,7 +217,7 @@ def sync(
         return SyncResult(ok=False, error=str(exc))
     with db.transaction(conn):
         _store_calendars(conn, found)
-        _store_events(conn, fetched, window_start, window_end)
+        _store_events(conn, fetched)
         db.set_setting(conn, _SYNCED_AT, now.isoformat(timespec="seconds"))
         db.set_setting(conn, _ERROR, "")
         db.set_setting(conn, _NEEDS_SIGN_IN, "0")
@@ -205,6 +226,49 @@ def sync(
         "Calendar sync: %d calendars shown, %d events", len(fetched), total
     )
     return SyncResult(ok=True, events=total)
+
+
+def sync_window(conn: sqlite3.Connection) -> SyncWindow:
+    """Reads how far back and ahead the sync copies.
+
+    Args:
+        conn: Open database connection.
+
+    Returns:
+        The saved window, or one week back and two ahead if never saved.
+    """
+    return SyncWindow(
+        weeks_back=int(db.get_setting(conn, _WEEKS_BACK, str(_DEFAULT_BACK))),
+        weeks_ahead=int(
+            db.get_setting(conn, _WEEKS_AHEAD, str(_DEFAULT_AHEAD))
+        ),
+    )
+
+
+def set_sync_window(
+    conn: sqlite3.Connection, weeks_back: int, weeks_ahead: int
+) -> None:
+    """Saves how far back and ahead the sync copies.
+
+    The next sync uses it; events outside it are dropped then.
+
+    Args:
+        conn: Open database connection.
+        weeks_back: Whole weeks before this week, 0 to 4.
+        weeks_ahead: Weeks from this week's Monday, 1 to 12.
+
+    Raises:
+        ValueError: If either number is out of range (nothing is saved).
+    """
+    if not 0 <= weeks_back <= _MAX_BACK:
+        msg = f"Weeks back must be from 0 to {_MAX_BACK}."
+        raise ValueError(msg)
+    if not 1 <= weeks_ahead <= _MAX_AHEAD:
+        msg = f"Weeks ahead must be from 1 to {_MAX_AHEAD}."
+        raise ValueError(msg)
+    with db.transaction(conn):
+        db.set_setting(conn, _WEEKS_BACK, str(weeks_back))
+        db.set_setting(conn, _WEEKS_AHEAD, str(weeks_ahead))
 
 
 def list_calendars(conn: sqlite3.Connection) -> list[Calendar]:
@@ -354,19 +418,15 @@ def _store_calendars(
 
 
 def _store_events(
-    conn: sqlite3.Connection,
-    fetched: dict[str, list[outlook.RawEvent]],
-    window_start: datetime.datetime,
-    window_end: datetime.datetime,
+    conn: sqlite3.Connection, fetched: dict[str, list[outlook.RawEvent]]
 ) -> None:
     _drop_unselected_events(conn)
     # The choice may have changed while we were waiting on Microsoft.
     shown = {c.id for c in list_calendars(conn) if c.selected}
-    conn.execute(
-        "DELETE FROM event WHERE ends_at <= ?"
-        " OR (starts_at < ? AND ends_at > ?)",
-        (_iso(window_start), _iso(window_end), _iso(window_start)),
-    )
+    # Every stored event came from a calendar fetched in full just now, so
+    # replace them all: that also drops what a narrower window no longer
+    # covers.
+    conn.execute("DELETE FROM event")
     for calendar_id, events in fetched.items():
         if calendar_id not in shown:
             continue

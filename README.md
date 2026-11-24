@@ -122,6 +122,8 @@ categories are not used, because the iPhone app cannot set them. Setup (app
 registration, `diary-app login-outlook`, the timer, choosing calendars) is in
 [docs/outlook-setup.md](docs/outlook-setup.md). With no `MS_CLIENT_ID` set the
 rest of the app works as before and the Calendar tab says it is not connected.
+How far back and ahead to copy (default last week, this week and next) is a
+setting in Settings > Calendar.
 
 ## Shopping and the pantry
 

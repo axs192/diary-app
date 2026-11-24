@@ -325,6 +325,49 @@ class SettingsSectionTest(_CalendarTestCase):
         self.client.post("/settings/calendars", data={})
         self.assertNotIn("Swimming", self.page())
 
+    def test_the_sync_window_shows_its_defaults(self) -> None:
+        section = self.section()
+        self.assertRegex(section, r'name="weeks_back"[^>]*value="1"')
+        self.assertRegex(section, r'name="weeks_ahead"[^>]*value="2"')
+
+    def test_saving_the_sync_window_keeps_it(self) -> None:
+        response = self.client.post(
+            "/settings/calendar/window",
+            data={"weeks_back": "2", "weeks_ahead": "4"},
+        )
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], _SETTINGS_CALENDAR)
+        section = self.section()
+        self.assertRegex(section, r'name="weeks_back"[^>]*value="2"')
+        self.assertRegex(section, r'name="weeks_ahead"[^>]*value="4"')
+
+    def test_a_longer_window_is_used_by_the_next_sync(self) -> None:
+        self.graph.events["cal"].append(
+            graph_event(
+                "far",
+                "Mum : Far",
+                "2030-01-22T09:00:00",
+                "2030-01-22T10:00:00",
+            )
+        )
+        self.show_family_calendar()
+        self.assertNotIn("Far", self.page("2030-01-21"))
+        self.client.post(
+            "/settings/calendar/window",
+            data={"weeks_back": "1", "weeks_ahead": "4"},
+        )
+        self.sync_now()
+        self.assertIn("Far", self.page("2030-01-21"))
+
+    def test_a_bad_sync_window_is_refused_and_not_saved(self) -> None:
+        for back, ahead in (("1", "0"), ("x", "2"), ("", ""), ("9", "2")):
+            response = self.client.post(
+                "/settings/calendar/window",
+                data={"weeks_back": back, "weeks_ahead": ahead},
+            )
+            self.assertEqual(response.status_code, 400, (back, ahead))
+        self.assertRegex(self.section(), r'name="weeks_ahead"[^>]*value="2"')
+
     def test_the_title_convention_is_explained(self) -> None:
         self.assertIn("Mum : Swimming", self.section())
 

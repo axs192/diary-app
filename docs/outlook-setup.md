@@ -70,6 +70,12 @@ Open **Settings > Calendar**, press **Sync now** (this fetches the list of
 calendars the account can see), tick the family calendar, **Save calendars**,
 then **Sync now** again. Nothing is shown until a calendar is ticked.
 
+The same section says how much to copy: **Weeks back to keep** (0 to 4,
+default 1) and **Weeks ahead to keep** (1 to 12, default 2). Weeks are counted
+from this week's Monday, so 2 ahead is this week and next. Change them and
+press **Save**; the next sync (or **Sync now**) applies them and drops events
+outside the new range. Pages for weeks outside it show nothing.
+
 ## How events are matched to people
 
 Outlook categories are **not** used (the iPhone app cannot set them). Write
