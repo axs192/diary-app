@@ -53,7 +53,7 @@ def app_colour_names() -> list[str]:
 def css(name: str) -> str:
     """Returns the CSS rules that apply an app colour.
 
-    Written into each page by the server, so the iPad needs no JavaScript
+    Written into each page by the server, so the iPad needs no script
     to pick up the colour.
 
     Args:

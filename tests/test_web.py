@@ -10,6 +10,7 @@ from fastapi import testclient
 
 from diary_app import app as diary_app
 from diary_app import config
+from tests import support
 
 _PIN = "4321"
 _SESSION_SECRET = "web-test-session-secret-0123456789"  # noqa: S105
@@ -205,7 +206,7 @@ class LayoutTest(_WebTestCase):
 
 
 class Ios9SafetyTest(_WebTestCase):
-    """The kitchen iPad runs iOS 9 Safari: no JS, no grid, no flex gap."""
+    """The kitchen iPad runs iOS 9 Safari: ES5 only, no grid, no flex gap."""
 
     def _all_markup(self) -> list[tuple[str, str]]:
         self.log_in()
@@ -215,9 +216,9 @@ class Ios9SafetyTest(_WebTestCase):
         )
         return markup
 
-    def test_no_javascript(self) -> None:
+    def test_only_the_app_script(self) -> None:
         for page, text in self._all_markup():
-            self.assertNotIn("<script", text, page)
+            support.assert_only_app_script(self, text, page)
 
     def test_no_css_grid(self) -> None:
         for page, text in self._all_markup():

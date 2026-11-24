@@ -24,10 +24,14 @@
   src: url("/static/fonts/Ubuntu-Bold.ttf") format("truetype");
 }
 
+/* Modern browsers cross-fade between pages instead of flashing the backdrop
+   (iOS 9 Safari skips this rule). The page colour itself is set inline in
+   base.html so it paints before this file has loaded. */
+@view-transition { navigation: auto; }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-  background: #F4F5F1;
   color: #1C2321;
   font-family: "Ubuntu", -apple-system, Helvetica, Arial, sans-serif;
   font-size: 16px;

@@ -10,6 +10,7 @@ from fastapi import testclient
 
 from diary_app import app as diary_app
 from diary_app import config
+from tests import support
 
 _PIN = "4321"
 _SESSION_SECRET = "session-secret-that-must-never-leak-0123456789"  # noqa: S105
@@ -125,10 +126,11 @@ class HomePageTest(unittest.TestCase):
         for secret in _SECRETS:
             self.assertNotIn(secret, html)
 
-    def test_home_uses_no_javascript(self) -> None:
-        # Safari on iOS 9 (iPad mini 1st gen) predates modern JS features.
+    def test_home_runs_only_the_app_script(self) -> None:
+        # Safari on iOS 9 (iPad mini 1st gen) predates modern JS features, so
+        # the one script is hand-written ES5.
         html = _make_logged_in_client().get("/home").text
-        self.assertNotIn("<script", html)
+        support.assert_only_app_script(self, html, "/home")
 
 
 if __name__ == "__main__":

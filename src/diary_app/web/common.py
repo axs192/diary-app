@@ -1,7 +1,8 @@
 """Helpers shared by every page router: database access, rendering, redirects.
 
 Every action in the app is a plain HTML form post that answers with a 303
-redirect, so the pages work on iOS 9 Safari without JavaScript.
+redirect, so the pages work on iOS 9 Safari without form scripting. The only
+script is static/app.js, which keeps link taps inside the Home Screen app.
 """
 
 import pathlib
