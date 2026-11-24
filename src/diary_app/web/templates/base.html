@@ -21,7 +21,7 @@ html, body { background: #F4F5F1; }
 {{ theme_css|safe }}
 </style>
 </head>
-<body>
+<body data-error-banner="{{ 'on' if error_banner else 'off' }}">
 {% if show_nav %}
 <header class="topbar">
   <div class="topbar-inner">

@@ -77,6 +77,7 @@ def render(
             "theme_css": theme.css(colour),
             "nav": NAV,
             "path": request.url.path,
+            "error_banner": request.app.state.error_banner,
             **context,
         },
         status_code=status_code,

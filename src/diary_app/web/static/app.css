@@ -361,3 +361,49 @@ details[open] > .acc-head .chev { transform: rotate(90deg); }
 .acc-body > .muted:first-child { margin-top: 0; }
 .site-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
 .site-name { font-weight: 500; margin-right: 12px; word-break: break-all; }
+
+/* Self-healing (see app.js). Flexbox and margins only, for iOS 9. The overlay
+   sits above the phone menu (z-index 10); the error banner sits above both. */
+.reconnecting {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #1C2321;
+  color: #FFFFFF;
+  text-align: center;
+}
+.reconnecting-title { margin: 0 0 8px; font-size: 32px; font-weight: 500; }
+.reconnecting-note { margin: 0; font-size: 18px; font-weight: 300; }
+
+.js-error {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: #8A1F1F;
+  color: #FFFFFF;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.js-error-text { flex: 1 1 auto; margin-right: 12px; word-break: break-word; }
+.js-error-dismiss {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #FFFFFF;
+  border-radius: 8px;
+  background: transparent;
+  color: #FFFFFF;
+  font: inherit;
+}

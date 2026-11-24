@@ -33,12 +33,16 @@ class Settings(pydantic_settings.BaseSettings):
         database_path: SQLite file. Production sets this to a path inside
             ``/var/lib/diary-app``; the default suits local development.
         log_level: Standard library logging level name, e.g. ``"INFO"``.
+        error_banner: Whether pages show a small dismissible banner when
+            their JavaScript fails. The iPad has no Web Inspector, so this is
+            on by default; set ``ERROR_BANNER=false`` to hide it.
     """
 
     household_pin: pydantic.SecretStr = pydantic.Field(min_length=1)
     session_secret: pydantic.SecretStr = pydantic.Field(min_length=16)
     database_path: pathlib.Path = pathlib.Path("data/diary.db")
     log_level: str = "INFO"
+    error_banner: bool = True
 
     @classmethod
     def settings_customise_sources(
