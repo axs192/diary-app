@@ -94,6 +94,13 @@ ignoring capitals and spaces. Any other word before the colon becomes a tag
 the calendar at once. Changing a title in Outlook shows up at the next sync
 (at most 15 minutes, or press **Sync now**).
 
+If the word used in Outlook is not the person's name (say `Mummy : Swimming`
+for Mum), open **Settings > People & colours** and pick it in that person's
+**Called this in Outlook** dropdown. The dropdown lists the words found before
+the colon in the synced calendar, so sync first. Choose **Same as the name**
+to go back to matching on the name alone. A person's own name always wins over
+another person's Outlook word, and the change shows at once with no re-sync.
+
 ## If something goes wrong
 
 | Calendar page says | Do |

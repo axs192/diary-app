@@ -29,3 +29,20 @@
 
 {# The tap row of a collapsible section: title, an optional count, the arrow. #}
 {% macro acc_head(title, count="") %}<summary class="acc-head"><span class="acc-row"><span class="acc-title">{{ title }}</span>{% if count %}<span class="acc-count">{{ count }}</span>{% endif %}{{ chevron() }}</span></summary>{% endmacro %}
+
+{# The name an Outlook title uses for a person: a dropdown of the words seen
+   before the colon, with "Same as the name" first. A saved word that no event
+   uses any more stays in the list so saving never loses it. #}
+{% macro outlook_name_select(field_id, current, words) %}
+<select class="input" id="{{ field_id }}" name="outlook_category">
+  <option value=""{% if not current %} selected{% endif %}>Same as the name</option>
+  {% set shown = namespace(found=false) %}
+  {% for word in words %}
+  {% if word|lower == current|lower %}{% set shown.found = true %}{% endif %}
+  <option value="{{ word }}"{% if word|lower == current|lower %} selected{% endif %}>{{ word }}</option>
+  {% endfor %}
+  {% if current and not shown.found %}
+  <option value="{{ current }}" selected>{{ current }}</option>
+  {% endif %}
+</select>
+{% endmacro %}

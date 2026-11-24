@@ -143,10 +143,12 @@ class SyncStatus:
 def parse_title(raw: str, people: Sequence[Person]) -> ParsedTitle:
     """Works out who an event is for from its title.
 
-    The text before the first colon is compared with the family's names,
-    ignoring case and spaces. A match names the person; any other prefix is
-    a kind of event (for the whole family). With no usable prefix the event
-    is for the family and ``needs_name`` is set.
+    The text before the first colon is compared with each person's name and
+    with the name they are given for Outlook titles in Settings, ignoring
+    case and spaces. A match names the person (a person's own name wins over
+    someone else's Outlook name); any other prefix is a kind of event (for
+    the whole family). With no usable prefix the event is for the family and
+    ``needs_name`` is set.
 
     Args:
         raw: The title as written in Outlook.
@@ -162,14 +164,46 @@ def parse_title(raw: str, people: Sequence[Person]) -> ParsedTitle:
     if family is None:
         msg = "The diary has no Family person."
         raise LookupError(msg)
+    split = _split_title(raw)
+    if split is None:
+        return ParsedTitle(family, "", raw.strip(), needs_name=True)
+    prefix, rest = split
+    by_label = {
+        p.outlook_category.casefold(): p for p in people if p.outlook_category
+    }
+    by_label.update({p.name.casefold(): p for p in people})  # names win
+    person = by_label.get(prefix.casefold())
+    if person is not None:
+        return ParsedTitle(person, "", rest, needs_name=False)
+    return ParsedTitle(family, prefix, rest, needs_name=False)
+
+
+def _split_title(raw: str) -> tuple[str, str] | None:
     prefix, colon, rest = raw.partition(":")
     prefix, rest = prefix.strip(), rest.strip()
     if not colon or not prefix or not rest:
-        return ParsedTitle(family, "", raw.strip(), needs_name=True)
-    for person in people:
-        if person.name.casefold() == prefix.casefold():
-            return ParsedTitle(person, "", rest, needs_name=False)
-    return ParsedTitle(family, prefix, rest, needs_name=False)
+        return None
+    return prefix, rest
+
+
+def title_prefixes(conn: sqlite3.Connection) -> list[str]:
+    """Lists the words that come before the colon in synced event titles.
+
+    Settings offers these as the name to use for each person.
+
+    Args:
+        conn: Open database connection.
+
+    Returns:
+        Each distinct prefix once (case ignored; the first spelling seen is
+        kept), sorted; empty until a sync has stored events.
+    """
+    seen: dict[str, str] = {}
+    for row in conn.execute("SELECT title FROM event ORDER BY starts_at, id"):
+        split = _split_title(row["title"])
+        if split:
+            seen.setdefault(split[0].casefold(), split[0])
+    return sorted(seen.values(), key=str.casefold)
 
 
 def sync(

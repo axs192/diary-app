@@ -93,6 +93,7 @@ def settings_context(
         "cal_banner": _banner(request, conn),
         "cal_choices": calendar_sync.list_calendars(conn),
         "cal_window": calendar_sync.sync_window(conn),
+        "cal_prefixes": calendar_sync.title_prefixes(conn),
     }
 
 

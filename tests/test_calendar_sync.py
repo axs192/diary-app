@@ -92,6 +92,30 @@ class ParseTitleTest(_DbTestCase):
         self.assertEqual(parsed.person, self.ben)
         self.assertEqual(parsed.title, "Lunch at 12:30")
 
+    def test_the_chosen_outlook_name_also_means_that_person(self) -> None:
+        people.update_person(
+            self.conn,
+            self.mum.id,
+            name="Mum",
+            colour=self.mum.colour,
+            outlook_category="Mummy",
+        )
+        for raw in ("Mummy : Yoga", "mummy:Yoga", "Mum : Yoga"):
+            parsed = self.parse(raw)
+            self.assertEqual(parsed.person.name, "Mum", raw)
+            self.assertEqual(parsed.kind, "", raw)
+            self.assertEqual(parsed.title, "Yoga", raw)
+
+    def test_a_name_beats_someone_elses_outlook_name(self) -> None:
+        people.update_person(
+            self.conn,
+            self.mum.id,
+            name="Mum",
+            colour=self.mum.colour,
+            outlook_category="Ben",
+        )
+        self.assertEqual(self.parse("Ben : Football").person, self.ben)
+
     def test_renaming_a_person_changes_who_events_belong_to(self) -> None:
         people.update_person(
             self.conn,
@@ -263,6 +287,36 @@ class SyncStorageTest(_SyncTestCase):
         self.sync()
         ids = [r[0] for r in self.conn.execute("SELECT id FROM event")]
         self.assertEqual(ids, ["swim"])
+
+
+class TitlePrefixTest(_SyncTestCase):
+    """The words before the colon that the dropdown in Settings offers."""
+
+    def test_lists_each_prefix_once_ignoring_case(self) -> None:
+        for event_id, title in (
+            ("a", "Mum : Yoga"),
+            ("b", "mum : Lunch"),
+            ("c", "Birthday : Nan"),
+            ("d", "Dentist"),
+            ("e", ": Nothing"),
+            ("f", "Ben :"),
+        ):
+            self.graph.events["cal"].append(
+                graph_event(
+                    event_id,
+                    title,
+                    "2030-01-08T09:00:00",
+                    "2030-01-08T10:00:00",
+                )
+            )
+        self.choose("cal")
+        self.sync()
+        self.assertEqual(
+            calendar_sync.title_prefixes(self.conn), ["Birthday", "Mum"]
+        )
+
+    def test_empty_before_anything_is_synced(self) -> None:
+        self.assertEqual(calendar_sync.title_prefixes(self.conn), [])
 
 
 class SyncWindowTest(_SyncTestCase):
