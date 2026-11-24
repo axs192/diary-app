@@ -128,6 +128,27 @@ dead. `src/diary_app/web/static/app.js` (loaded on every page) intercepts
 clicks on same-origin links and navigates in place; external links are left
 alone. Forms are plain `POST` then `303` redirects, which stay inside the app.
 
+## Self-healing (24/7 display)
+
+`app.js` keeps the kitchen display usable without anyone touching it:
+
+- **Reconnecting.** Every 30 seconds it asks `/health` (using
+  `XMLHttpRequest`). If that fails or times out, a full-screen
+  "Reconnecting…" screen covers the page and it keeps asking every 30 seconds,
+  then reloads the page once the server answers. Safari's own error page is
+  never left on screen.
+- **Scheduled reload.** The page reloads 6 hours after it loaded, or at 3 am
+  local time if that comes first, to shed any memory built up. A reload waits
+  while someone has been typing in the last 5 minutes, and until the server is
+  reachable.
+- **Error banner.** A script error shows a small dismissible banner (message,
+  file and line), because the iPad has no Web Inspector. Set
+  `ERROR_BANNER=false` in `/etc/diary-app/diary-app.env` (then restart the
+  service) to hide it.
+
+Not yet done: saving UI state in `localStorage`. There is no client-side state
+worth saving yet (every view is its own URL); add it when a feature needs it.
+
 ## Front-end rules (iOS 9 / Safari 9)
 
 There is no build step or bundler, so what is written is what the iPad runs.
@@ -153,4 +174,7 @@ current phone browsers.
   with a `303` redirect. Prefer native elements (`<details>`) to JavaScript.
 - **Guard rails:** `tests/test_app_js.py` fails if `app.js` uses modern syntax
   or APIs, and the `Ios9SafetyTest` classes fail on extra scripts, grid or
-  flex gap. Nothing here counts as working until it is tried on the iPad.
+  flex gap. `tests/test_app_js_behaviour.py` runs the real `app.js` under Node
+  in a small fake browser (`tests/js/`) to check links, the overlay, the
+  reloads and the banner; it needs `node` (CI has it; locally it skips
+  without it). Nothing here counts as working until it is tried on the iPad.

@@ -75,6 +75,7 @@ def create_app(
 
     app = fastapi.FastAPI(title="diary-app")
     app.state.database_path = settings.database_path
+    app.state.error_banner = settings.error_banner
     app.state.http_client = http_client
     app.state.resolve = resolve
     # The one place to swap in a different (e.g. AI-backed) suggester.
