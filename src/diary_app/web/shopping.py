@@ -370,6 +370,26 @@ def submit_edit_item(  # noqa: PLR0913, PLR0917
     return _after(None, monday, open_id=open_id, anchor=f"item-{saved.id}")
 
 
+@router.post("/shopping/item/{item_id}/delete")
+def submit_delete_item(
+    request: fastapi.Request,
+    conn: common.Db,
+    item_id: int,
+    week: common.FormText = "",
+) -> responses.RedirectResponse:
+    """Takes a row off the list (whether made from a meal or your own)."""
+    monday = _monday(request, week)
+    try:
+        item = shopping.get_item(conn, item_id)
+    except LookupError:
+        _flash(request, "That item is already gone.")
+        return _after(None, monday)
+    shopping.remove_item(conn, item_id)
+    _flash(request, f"Removed {item.name} from the list.")
+    open_id = _section_id("aisle", item.aisle) if item.source == "meal" else ""
+    return _after(None, monday, open_id=open_id)
+
+
 # --- the pantry -------------------------------------------------------------
 
 

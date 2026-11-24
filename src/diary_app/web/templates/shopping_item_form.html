@@ -24,4 +24,9 @@
     <a class="btn" href="{{ back }}">Cancel</a>
   </div>
 </form>
+<form method="post" action="/shopping/item/{{ item.id }}/delete">
+  <input type="hidden" name="week" value="{{ week }}">
+  {% if item.source == "meal" %}<p class="muted">Generating the list again brings it back if a dinner still needs it.</p>{% endif %}
+  <button class="btn btn-danger" type="submit">Remove from the list</button>
+</form>
 {% endblock %}

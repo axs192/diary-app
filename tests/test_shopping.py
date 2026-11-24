@@ -364,6 +364,52 @@ class EditItemTest(_ShoppingTestCase):
             shopping.update_item(self.conn, item)
 
 
+class RemoveItemTest(_ShoppingTestCase):
+    """Any row can be taken off the list: "salt and pepper to taste"."""
+
+    def test_a_row_made_from_a_meal_can_be_removed(self) -> None:
+        self.plan(_MON, "2 onions", "salt and pepper to taste")
+        got = self.generate(_MON)
+        salt = next(i for a in got.aisles for i in a.items if i.amount is None)
+        shopping.remove_item(self.conn, salt.id)
+        self.assertEqual(
+            self.to_buy(shopping.get_list(self.conn, _MON)), {"Onions": "2"}
+        )
+
+    def test_one_of_your_own_items_can_be_removed(self) -> None:
+        item = shopping.add_extra(self.conn, _MON, "Honey")
+        shopping.remove_item(self.conn, item.id)
+        self.assertEqual(shopping.get_list(self.conn, _MON).extras, ())
+
+    def test_only_that_row_goes_and_the_counts_follow(self) -> None:
+        self.plan(_MON, "2 onions", "1 leek")
+        got = self.generate(_MON)
+        leek = got.aisles[0].items[0]
+        shopping.toggle(self.conn, leek.id)
+        shopping.remove_item(self.conn, leek.id)
+        after = shopping.get_list(self.conn, _MON)
+        self.assertEqual(self.to_buy(after), {"Onions": "2"})
+        self.assertEqual((after.remaining, after.ticked), (1, 0))
+
+    def test_removing_a_row_that_is_gone_is_harmless(self) -> None:
+        item = shopping.add_extra(self.conn, _MON, "Honey")
+        shopping.remove_item(self.conn, item.id)
+        shopping.remove_item(self.conn, item.id)
+        shopping.remove_item(self.conn, 999)
+
+    def test_generating_again_brings_back_what_a_dinner_still_needs(
+        self,
+    ) -> None:
+        # Removal edits this list; it is not a standing instruction, so a
+        # dinner that still needs something is never silently left out.
+        self.plan(_MON, "salt and pepper to taste")
+        (row,) = self.generate(_MON).aisles[0].items
+        shopping.remove_item(self.conn, row.id)
+        self.assertEqual(
+            self.to_buy(self.generate(_MON)), {"Salt and pepper to taste": ""}
+        )
+
+
 class TickingTest(_ShoppingTestCase):
     def test_toggle_flips_the_tick_and_the_counts_follow(self) -> None:
         self.plan(_MON, "2 onions", "1 leek")

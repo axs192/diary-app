@@ -449,7 +449,8 @@ def add_extra(
 def remove_extra(conn: sqlite3.Connection, item_id: int) -> None:
     """Removes one of your own items. Does nothing if it is already gone.
 
-    Rows made from meals cannot be removed this way; generate again instead.
+    Rows made from meals cannot be removed this way (a forged id must not
+    delete them); ``remove_item`` takes any row.
 
     Args:
         conn: Open database connection.
@@ -459,6 +460,21 @@ def remove_extra(conn: sqlite3.Connection, item_id: int) -> None:
         "DELETE FROM shopping_item WHERE id = ? AND source = 'extra'",
         (item_id,),
     )
+
+
+def remove_item(conn: sqlite3.Connection, item_id: int) -> None:
+    """Takes any row off the list: one of your own, or one made from a meal.
+
+    For a row you do not want ("salt and pepper to taste" when you have
+    plenty). This edits the list as it stands; generating again brings back
+    anything a dinner still needs, so nothing is ever left out for good.
+    Does nothing if the row is already gone.
+
+    Args:
+        conn: Open database connection.
+        item_id: The row's id.
+    """
+    conn.execute("DELETE FROM shopping_item WHERE id = ?", (item_id,))
 
 
 def done_shopping(conn: sqlite3.Connection, monday: datetime.date) -> int:
