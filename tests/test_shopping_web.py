@@ -128,6 +128,13 @@ class AccessTest(_MealsTestCase):
                     (303, "/login"),
                 )
 
+    def test_removing_a_row_needs_the_login(self) -> None:
+        response = self.client.post("/shopping/item/1/delete", data={})
+        self.assertEqual(
+            (response.status_code, response.headers["location"]),
+            (303, "/login"),
+        )
+
 
 class GenerateFormTest(_ShoppingWebTestCase):
     def day_boxes(self, html: str) -> dict[str, tuple[bool, bool]]:
@@ -776,6 +783,44 @@ class EditShoppingItemTest(_ShoppingWebTestCase):
         )
         response = self.client.post("/shopping/item/999", data={"name": "x"})
         self.assertEqual(response.status_code, 404)
+
+    def test_the_editor_offers_to_remove_the_row(self) -> None:
+        html = self.get_page(self.url(self.onions))
+        self.assertIn(f'action="/shopping/item/{self.onions.id}/delete"', html)
+        self.assertIn("Remove from the list", html)
+        self.assertIn("Generating the list again", html)  # it can come back
+        own = self.get_page(self.url(self.honey))
+        self.assertIn("Remove from the list", own)
+        self.assertNotIn("Generating the list again", own)
+
+    def test_removing_a_row_made_from_a_meal_returns_to_its_aisle(self) -> None:
+        response = self.client.post(
+            f"/shopping/item/{self.onions.id}/delete", data={"week": _WEEK}
+        )
+        self.assertEqual(
+            (response.status_code, response.headers["location"]),
+            (303, f"{_PAGE}&open=aisle-fruit-veg"),
+        )
+        html = self.get_page()
+        self.assertIn("Removed Onions from the list", html)
+        self.assertNotIn(f'id="item-{self.onions.id}"', html)
+        self.assertEqual(
+            [i.name for a in self.listing().aisles for i in a.items], ["Leek"]
+        )
+
+    def test_removing_one_of_your_own_items(self) -> None:
+        response = self.client.post(
+            f"/shopping/item/{self.honey.id}/delete", data={"week": _WEEK}
+        )
+        self.assertEqual(response.headers["location"], _PAGE)
+        self.assertEqual(self.listing().extras, ())
+
+    def test_removing_a_row_that_has_gone_is_said_not_crashed_on(self) -> None:
+        url = f"/shopping/item/{self.honey.id}/delete"
+        self.client.post(url, data={"week": _WEEK})
+        response = self.client.post(url, data={"week": _WEEK})
+        self.assertEqual(response.status_code, 303)
+        self.assertIn("already gone", self.get_page())
 
     def test_the_editor_is_a_plain_page_for_the_ipad(self) -> None:
         html = self.get_page(self.url(self.onions))

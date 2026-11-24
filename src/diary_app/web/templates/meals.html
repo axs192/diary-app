@@ -9,6 +9,10 @@
     <a class="btn" href="{{ prev_week }}">&larr; Previous</a>
     <a class="btn" href="/meals">This week</a>
     <a class="btn" href="{{ next_week }}">Next &rarr;</a>
+    <form class="inline-form" method="post" action="/meals/clear">
+      <input type="hidden" name="week" value="{{ monday.isoformat() }}">
+      <button class="btn" type="submit">Clear week</button>
+    </form>
   </div>
 </div>
 
@@ -28,37 +32,41 @@
 <div class="days row">
   {% for d in days %}
   <article class="day card{% if d.day == today %} day-today{% endif %}" id="day-{{ d.day.isoformat() }}">
-    <h2 class="day-name">{{ d.day.strftime("%a") }} <span class="muted-inline">{{ d.day.day }} {{ d.day.strftime("%b") }}</span></h2>
+    <h2 class="day-name">{{ d.day.strftime("%a") }} <span class="muted-inline">{{ d.day.day }} {{ d.day.strftime("%b") }}</span>{% if d.cooked %} <span class="chip chip-have">Cooked</span>{% endif %}</h2>
     {% if d.recipe %}
     <a class="day-meal" href="/recipes/{{ d.recipe.id }}">{{ d.recipe.name }}</a>
     <div class="meta">{{ d.recipe.mins }} min &middot; {{ d.recipe.style }}</div>
-    {{ tag_chips(d.recipe.tags) }}
+    <div class="day-tags">{{ tag_chips(d.recipe.tags) }}</div>
     <div class="row day-actions">
       <a class="btn btn-small" href="/recipes/{{ d.recipe.id }}">Recipe</a>
-      <a class="btn btn-small" href="{{ here_week }}&amp;tab=ideas&amp;day={{ d.day.isoformat() }}#library">Swap</a>
-      <form class="inline-form" method="post" action="/meals/day/remove">
-        <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
-        <button class="btn btn-small" type="submit">Remove</button>
-      </form>
-      {{ heart(d.recipe, here) }}
-    </div>
-    <div class="row day-actions">
-      {% if d.cooked %}
-      <span class="chip chip-have">Cooked</span>
-      <form class="inline-form" method="post" action="/meals/day/uncooked">
-        <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
-        <button class="btn btn-small" type="submit">Undo</button>
-      </form>
-      {% else %}
-      <form class="inline-form" method="post" action="/meals/day/cooked">
-        <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
-        <button class="btn btn-small" type="submit">Cooked it</button>
-      </form>
-      {% endif %}
+      <details class="day-menu">
+        <summary aria-label="More for {{ d.day.strftime('%a') }} {{ d.day.day }} {{ d.day.strftime('%b') }}"><span class="day-menu-dots">&hellip;</span></summary>
+        <div class="day-menu-body">
+          <a class="btn btn-small" href="{{ here_week }}&amp;tab=ideas&amp;day={{ d.day.isoformat() }}#library">Swap</a>
+          <form class="inline-form" method="post" action="/meals/day/remove">
+            <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
+            <button class="btn btn-small" type="submit">Remove</button>
+          </form>
+          {% if d.cooked %}
+          <form class="inline-form" method="post" action="/meals/day/uncooked">
+            <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
+            <button class="btn btn-small" type="submit">Undo</button>
+          </form>
+          {% else %}
+          <form class="inline-form" method="post" action="/meals/day/cooked">
+            <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
+            <button class="btn btn-small" type="submit">Cooked it</button>
+          </form>
+          {% endif %}
+          <div class="day-menu-row"><span>Favourite</span>{{ heart(d.recipe, here) }}</div>
+        </div>
+      </details>
     </div>
     {% else %}
     <p class="muted">Nothing planned</p>
-    <a class="btn btn-small" href="{{ here_week }}&amp;tab=ideas&amp;day={{ d.day.isoformat() }}#library">Add a meal</a>
+    <div class="row day-actions">
+      <a class="btn btn-small" href="{{ here_week }}&amp;tab=ideas&amp;day={{ d.day.isoformat() }}#library">Add a meal</a>
+    </div>
     {% endif %}
   </article>
   {% endfor %}
@@ -87,7 +95,8 @@
     <button class="btn btn-primary accent-bg" type="submit">Suggest a week</button>
   </form>
 
-  <section class="card panel" aria-label="Week balance">
+  {# Parked for now: not shown, but still computed so it is easy to bring back (delete "hidden"). #}
+  <section class="card panel" aria-label="Week balance" hidden>
     <h2 class="section-title">Week balance</h2>
     {% for b in bars %}
     <div class="bar-row">
@@ -95,10 +104,6 @@
       <div class="bar"><div class="bar-fill accent-bg" style="width: {{ [b.count * 100 // b.goal, 100]|min }}%"></div></div>
     </div>
     {% endfor %}
-    <form method="post" action="/meals/clear">
-      <input type="hidden" name="week" value="{{ monday.isoformat() }}">
-      <button class="btn" type="submit">Clear week</button>
-    </form>
   </section>
 </div>
 
