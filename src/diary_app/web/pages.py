@@ -7,6 +7,7 @@ import fastapi
 from fastapi import responses
 
 from diary_app import db, import_sites, people, recipe_import, security, theme
+from diary_app.web import calendar as calendar_web
 from diary_app.web import common
 
 router = fastapi.APIRouter()
@@ -16,6 +17,7 @@ protected = common.protected_router()
 _SECTIONS = (
     ("colour", "App colour"),
     ("people", "People & colours"),
+    ("calendar", "Calendar"),
     ("sites", "Recipe sites"),
     ("device", "This device"),
 )
@@ -113,6 +115,7 @@ def show_settings(
         people=people.list_people(conn),
         palette=list(theme.PERSON_COLOURS.items()),
         roles=people.ADDABLE_ROLES,
+        **calendar_web.settings_context(request, conn),
     )
 
 

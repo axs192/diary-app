@@ -11,13 +11,15 @@ import fastapi.staticfiles
 import httpx
 from starlette.middleware import sessions
 
-from diary_app import config, planner, security
+from diary_app import config, outlook, planner, security
+from diary_app.web import calendar as calendar_web
 from diary_app.web import meals, pages, recipe_pages, shopping
 
 _logger = logging.getLogger(__name__)
 _STATIC = pathlib.Path(__file__).parent / "web" / "static"
 # The kitchen iPad should stay logged in, so the cookie lasts a year.
 _SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
+_GRAPH_TIMEOUT_SECONDS = 20.0
 
 
 # iOS asks for these paths when a page has no (usable) icon link, and sends
@@ -42,12 +44,25 @@ def _serve_icon_guesses(app: fastapi.FastAPI) -> None:
         app.add_api_route(f"/{name}", icon, include_in_schema=False)
 
 
+def _graph_from(settings: config.Settings) -> outlook.GraphClient | None:
+    if not settings.ms_client_id:
+        return None
+    return outlook.GraphClient(
+        outlook.MsalTokenSource(
+            settings.ms_client_id, settings.outlook_token_path
+        ),
+        httpx.Client(timeout=_GRAPH_TIMEOUT_SECONDS),
+        timezone=settings.timezone,
+    )
+
+
 def create_app(
     settings: config.Settings | None = None,
     *,
     http_client: httpx.Client | None = None,
     resolve: Callable[[str], list[str]] | None = None,
     today: Callable[[], datetime.date] = datetime.date.today,
+    graph: outlook.GraphClient | None = None,
 ) -> fastapi.FastAPI:
     """Builds the FastAPI application.
 
@@ -62,6 +77,10 @@ def create_app(
             safety check. Defaults to the system resolver.
         today: Returns today's date, for the shopping pages. Tests pass a
             fixed date; the default is the real one.
+        graph: Microsoft Graph client for the calendar. Tests pass one wired
+            to a fake; when omitted, a real one is made if ``MS_CLIENT_ID``
+            is set, and otherwise the calendar pages say Outlook is not
+            connected.
 
     Returns:
         A configured FastAPI application.
@@ -83,6 +102,7 @@ def create_app(
     app.state.http_client = http_client
     app.state.resolve = resolve
     app.state.today = today
+    app.state.graph = graph or _graph_from(settings)
     # The one place to swap in a different (e.g. AI-backed) suggester.
     app.state.suggester = planner.RuleBasedSuggester()
     app.state.pin_checker = security.PinChecker(
@@ -115,6 +135,7 @@ def create_app(
     app.include_router(meals.router)
     app.include_router(recipe_pages.router)
     app.include_router(shopping.router)
+    app.include_router(calendar_web.router)
 
     @app.get("/")
     def read_root() -> dict[str, str]:

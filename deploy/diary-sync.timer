@@ -1,0 +1,10 @@
+[Unit]
+Description=diary-app: refresh the family calendar every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Unit=diary-sync.service
+
+[Install]
+WantedBy=timers.target

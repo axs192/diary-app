@@ -1,0 +1,25 @@
+[Unit]
+Description=diary-app: copy the family Outlook calendar into the diary
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=diary
+Group=diary
+WorkingDirectory=/opt/diary-app
+# Same plain settings as the web app (database path, MS_CLIENT_ID, time zone).
+# The sync needs no encrypted credentials: its Outlook sign-in is a private
+# file in the state folder, created once by `diary-app login-outlook`.
+EnvironmentFile=/etc/diary-app/diary-app.env
+StateDirectory=diary-app
+StateDirectoryMode=0700
+ExecStart=/opt/diary-app/.venv/bin/diary-app sync-calendar
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true

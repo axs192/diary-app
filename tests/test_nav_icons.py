@@ -44,7 +44,8 @@ class NavIconTest(unittest.TestCase):
 
     def test_every_menu_item_has_an_icon(self) -> None:
         self.assertEqual(
-            set(self._icons()), {"Today", "Meals", "Shopping", "Settings"}
+            set(self._icons()),
+            {"Today", "Meals", "Shopping", "Calendar", "Settings"},
         )
 
     def test_no_two_menu_items_share_an_icon(self) -> None:
