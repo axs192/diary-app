@@ -8,7 +8,14 @@ import fastapi
 import httpx
 from fastapi import responses
 
-from diary_app import import_sites, mealplan, recipe_import, recipes
+from diary_app import (
+    import_sites,
+    ingredients,
+    mealplan,
+    pantry,
+    recipe_import,
+    recipes,
+)
 from diary_app.web import common, meals
 
 router = common.protected_router()
@@ -204,12 +211,26 @@ def _get_or_404(conn: sqlite3.Connection, recipe_id: int) -> recipes.Recipe:
         raise fastapi.HTTPException(status_code=404) from exc
 
 
+def _pantry_note(
+    stock: list[pantry.PantryItem], line: str
+) -> tuple[str, str] | None:
+    """What the pantry has of an ingredient: (text, style), or None."""
+    found = pantry.match(stock, ingredients.parse(line).name)
+    if found is None:
+        return None
+    if found.amount.is_zero:
+        return ("None left", "out")
+    return (f"Have {found.amount.format()}", "have")
+
+
 @router.get("/recipes/{recipe_id}")
 def show_recipe(
     request: fastapi.Request, conn: common.Db, recipe_id: int
 ) -> responses.HTMLResponse:
     """Shows a recipe with its method and an "add to a day" form."""
     today = datetime.date.today()
+    recipe = _get_or_404(conn, recipe_id)
+    stock = pantry.items(conn)
     upcoming = [
         today + datetime.timedelta(days=i) for i in range(_UPCOMING_DAYS)
     ]
@@ -217,7 +238,10 @@ def show_recipe(
         request,
         conn,
         "recipe.html",
-        recipe=_get_or_404(conn, recipe_id),
+        recipe=recipe,
+        ingredient_rows=[
+            (line, _pantry_note(stock, line)) for line in recipe.ingredients
+        ],
         upcoming=upcoming,
         here=f"/recipes/{recipe_id}",
         planned_on={

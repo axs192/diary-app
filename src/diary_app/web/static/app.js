@@ -2,7 +2,7 @@
  * Safari, so no arrow functions, let/const, template literals, fetch, or
  * Element.closest. There is no build step to transpile for us.
  *
- * It does four jobs, each small and independent:
+ * It does six jobs, each small and independent:
  *
  * 1. Links. In an iOS 9 Home Screen (standalone) app, tapping a plain
  *    same-origin <a href> opens Safari instead of navigating in place. Guided
@@ -26,6 +26,16 @@
  *    page load of the long Meals page flashes black on the iPad while it
  *    paints. A tab with data-fragment fetches just the list and swaps it into
  *    #library-list instead, falling back to the normal link if that fails.
+ *
+ * 5. In-place forms. A tap on a submit button in a form with
+ *    data-swap="<id>" posts the form in the background with _fragment=1; the
+ *    server answers with just that part of the page, which replaces the
+ *    element <id>. The page keeps its scroll position and does not flash.
+ *    Without this script the same form is a normal post and 303 redirect.
+ *    <details id=".."> sections that were open stay open across the swap,
+ *    so ticking an item does not close the aisle being worked through.
+ *
+ * 6. Select-all text boxes, for copying a list on iOS 9 (see below).
  */
 (function () {
   var POLL_MS = 30000;
@@ -64,9 +74,78 @@
       .replace(/^\s+|\s+$/g, '');
   }
 
-  // --- 4. Meals tabs ------------------------------------------------------
+  // --- 4 and 5. Swapping part of the page --------------------------------
 
   var swapCount = 0; // which tap is current, so a late answer can be ignored
+
+  // Which <details id=".."> sections inside `target` are open right now, as
+  // { id: true|false }. Sections without an id cannot be told apart, so they
+  // are skipped.
+  function openSections(target) {
+    var found = {};
+    var all = target.getElementsByTagName('details');
+    for (var i = 0; i < all.length; i++) {
+      var id = all[i].getAttribute('id');
+      if (id) {
+        found[id] = !!all[i].open;
+      }
+    }
+    return found;
+  }
+
+  // Puts sections back as the user left them. Ones the server just added are
+  // left as the server drew them. Without this, every swap would snap an
+  // aisle the user is working through shut again.
+  function restoreSections(target, sections) {
+    var all = target.getElementsByTagName('details');
+    for (var i = 0; i < all.length; i++) {
+      var id = all[i].getAttribute('id');
+      if (id && sections.hasOwnProperty(id)) {
+        all[i].open = sections[id];
+      }
+    }
+  }
+
+  // Sends a request and puts the answer into `target`, dimming it (busyClass)
+  // meanwhile. On an error status, a timeout or no connection it calls
+  // failed() instead; done() runs after a successful swap. An answer to an
+  // earlier tap that arrives after a later one is dropped.
+  function swapInto(target, busyClass, method, url, body, failed, done) {
+    var mine = ++swapCount;
+    addClass(target, busyClass);
+
+    function fail() {
+      if (mine === swapCount) {
+        removeClass(target, busyClass);
+        failed();
+      }
+    }
+
+    var xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    xhr.timeout = 15000;
+    xhr.onload = function () {
+      if (mine !== swapCount) {
+        return; // a later tap has taken over
+      }
+      if (xhr.status !== 200) {
+        fail();
+        return;
+      }
+      var sections = openSections(target);
+      target.innerHTML = xhr.responseText;
+      restoreSections(target, sections);
+      removeClass(target, busyClass);
+      if (done) {
+        done();
+      }
+    };
+    xhr.onerror = fail;
+    xhr.ontimeout = fail;
+    xhr.send(body);
+  }
+
+  // --- 4. Meals tabs ------------------------------------------------------
 
   function markCurrent(tab) {
     var tabs = tab.parentNode.children;
@@ -86,39 +165,59 @@
       location.href = tab.href;
       return;
     }
-    var mine = ++swapCount;
-    addClass(list, 'lib-busy');
-
-    function fallBack() {
-      if (mine === swapCount) {
-        removeClass(list, 'lib-busy');
-        location.href = tab.href;
-      }
-    }
-
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.timeout = 15000;
-    xhr.onload = function () {
-      if (mine !== swapCount) {
-        return; // a later tap has taken over
-      }
-      if (xhr.status !== 200) {
-        fallBack();
-        return;
-      }
-      list.innerHTML = xhr.responseText;
-      removeClass(list, 'lib-busy');
+    swapInto(list, 'lib-busy', 'GET', url, null, function () {
+      location.href = tab.href;
+    }, function () {
       markCurrent(tab);
-    };
-    xhr.onerror = fallBack;
-    xhr.ontimeout = fallBack;
-    xhr.send();
+    });
+  }
+
+  // --- 5. In-place forms --------------------------------------------------
+
+  // The submit button a tap landed on (or inside), or null.
+  function submitButton(el) {
+    while (el && el.nodeName !== 'BUTTON') {
+      el = el.parentNode;
+    }
+    if (!el || (el.getAttribute('type') || 'submit') !== 'submit') {
+      return null;
+    }
+    return el;
+  }
+
+  // Posts the button's form in the background and swaps the server's
+  // fragment into the element named by the form's data-swap. Returns false,
+  // and does nothing, when the form is not one of those.
+  function submitInPlace(button) {
+    var form = button.form;
+    var targetId = form && form.getAttribute('data-swap');
+    var target = targetId && document.getElementById(targetId);
+    if (!target) {
+      return false;
+    }
+    var data = new FormData(form);
+    if (button.getAttribute('name')) {
+      // Safari 9 has no SubmitEvent.submitter, so add the tapped button.
+      data.append(button.getAttribute('name'), button.getAttribute('value') || '');
+    }
+    data.append('_fragment', '1');
+    var url = button.getAttribute('formaction') || form.getAttribute('action');
+    // On failure reload rather than resubmit: the post may already have
+    // reached the server, and sending a toggle twice would undo it.
+    swapInto(target, 'swap-busy', 'POST', url, data, function () {
+      location.reload();
+    });
+    return true;
   }
 
   // --- 1. Links -----------------------------------------------------------
 
   document.addEventListener('click', function (e) {
+    var button = submitButton(e.target);
+    if (button && submitInPlace(button)) {
+      e.preventDefault();
+      return;
+    }
     var a = e.target;
     while (a && a.nodeName !== 'A') {
       a = a.parentNode;
@@ -137,6 +236,18 @@
     e.preventDefault();
     location.href = a.href;
   }, false);
+
+  // --- 6. Select-all text boxes -------------------------------------------
+
+  // iOS 9 cannot copy from script (no execCommand('copy')), so a box marked
+  // data-select-all selects its text when tapped, ready for a long-press Copy.
+  // Focus does not bubble, hence the capture listener.
+  document.addEventListener('focus', function (e) {
+    var box = e.target;
+    if (box && box.getAttribute && box.getAttribute('data-select-all') !== null) {
+      box.setSelectionRange(0, box.value.length);
+    }
+  }, true);
 
   // --- 3. Errors ----------------------------------------------------------
 

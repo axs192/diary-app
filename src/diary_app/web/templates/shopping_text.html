@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Diary · Copy the list{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">Shopping</div>
+  <h1 class="title">Copy for online order</h1>
+</div>
+<section class="card" aria-label="The list as text">
+  {% if text %}
+  <p class="muted">Tap the box to select everything, then press and hold and choose Copy.</p>
+  <textarea class="input textarea shop-text" rows="16" readonly data-select-all aria-label="Shopping list text">{{ text }}</textarea>
+  {% else %}
+  <p class="muted">There is nothing left to buy this week.</p>
+  {% endif %}
+  <a class="btn" href="{{ back }}">Back to the list</a>
+</section>
+{% endblock %}

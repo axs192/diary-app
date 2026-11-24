@@ -3,8 +3,10 @@
 import dataclasses
 import datetime
 import sqlite3
+from fractions import Fraction
 
-from diary_app import recipes
+from diary_app import db, ingredients, pantry, recipes
+from diary_app.ingredients import Amount
 
 _DAYS_IN_WEEK = 7
 
@@ -16,10 +18,13 @@ class PlannedDay:
     Attributes:
         day: The date.
         recipe: The planned dinner, or None when the day is empty.
+        cooked: True once "Cooked it" has taken the dinner's ingredients out
+            of the pantry (see ``cook``).
     """
 
     day: datetime.date
     recipe: recipes.Recipe | None
+    cooked: bool = False
 
 
 @dataclasses.dataclass(frozen=True)
@@ -68,10 +73,22 @@ def week(conn: sqlite3.Connection, day: datetime.date) -> list[PlannedDay]:
         (monday.isoformat(), sunday.isoformat()),
     )
     planned = {row["day"]: row["recipe_id"] for row in rows}
+    cooked = {
+        row["day"]
+        for row in conn.execute(
+            "SELECT day FROM cooked_day WHERE day BETWEEN ? AND ?",
+            (monday.isoformat(), sunday.isoformat()),
+        )
+    }
     library = recipes.get_many(conn, set(planned.values()))
     days = [monday + datetime.timedelta(days=i) for i in range(_DAYS_IN_WEEK)]
     return [
-        PlannedDay(d, library.get(planned.get(d.isoformat(), -1))) for d in days
+        PlannedDay(
+            d,
+            library.get(planned.get(d.isoformat(), -1)),
+            d.isoformat() in cooked,
+        )
+        for d in days
     ]
 
 
@@ -89,11 +106,15 @@ def set_meal(
         LookupError: If no such recipe exists.
     """
     recipes.get(conn, recipe_id)
-    conn.execute(
-        "INSERT INTO meal_plan (day, recipe_id) VALUES (?, ?)"
-        " ON CONFLICT(day) DO UPDATE SET recipe_id = excluded.recipe_id",
-        (day.isoformat(), recipe_id),
-    )
+    with db.transaction(conn):
+        conn.execute(
+            "INSERT INTO meal_plan (day, recipe_id) VALUES (?, ?)"
+            " ON CONFLICT(day) DO UPDATE SET recipe_id = excluded.recipe_id",
+            (day.isoformat(), recipe_id),
+        )
+        # A different dinner has not been cooked yet. What was taken from
+        # the pantry stays taken: the earlier dinner was eaten.
+        conn.execute("DELETE FROM cooked_day WHERE day = ?", (day.isoformat(),))
 
 
 def clear_day(conn: sqlite3.Connection, day: datetime.date) -> None:
@@ -119,6 +140,86 @@ def clear_week(conn: sqlite3.Connection, day: datetime.date) -> None:
         "DELETE FROM meal_plan WHERE day BETWEEN ? AND ?",
         (monday.isoformat(), sunday.isoformat()),
     )
+
+
+def cook(
+    conn: sqlite3.Connection, day: datetime.date
+) -> list[tuple[str, Amount]]:
+    """Marks a day's dinner as cooked and takes its food out of the pantry.
+
+    Each readable ingredient that matches a pantry item in the same unit is
+    taken from it, never below zero. Lines in other units (a jar where the
+    recipe says a tin) and lines that could not be read are left alone. What
+    was taken is recorded so ``uncook`` can put back exactly that.
+
+    Args:
+        conn: Open database connection.
+        day: The date.
+
+    Returns:
+        ``(pantry item name, amount taken)`` for each item used; empty when
+        the day has no dinner, or was already cooked (nothing is taken twice).
+    """
+    with db.transaction(conn):
+        planned = conn.execute(
+            "SELECT recipe_id FROM meal_plan WHERE day = ?", (day.isoformat(),)
+        ).fetchone()
+        cooked = conn.execute(
+            "SELECT 1 FROM cooked_day WHERE day = ?", (day.isoformat(),)
+        ).fetchone()
+        if planned is None or cooked is not None:
+            return []
+        stock = pantry.items(conn)
+        left = {item.id: item.amount.value for item in stock}
+        taken: dict[int, Fraction] = {}
+        for line in recipes.get(conn, planned["recipe_id"]).ingredients:
+            wanted = ingredients.parse(line)
+            item = pantry.match(stock, wanted.name)
+            if (
+                wanted.amount is None
+                or item is None
+                or not item.amount.comparable(wanted.amount)
+            ):
+                continue
+            use = min(left[item.id], wanted.amount.value)
+            if use > 0:
+                left[item.id] -= use
+                taken[item.id] = taken.get(item.id, Fraction(0)) + use
+        conn.execute(
+            "INSERT INTO cooked_day (day) VALUES (?)", (day.isoformat(),)
+        )
+        used = {item.id: item for item in stock}
+        for item_id, value in taken.items():
+            pantry.adjust(conn, item_id, -value)
+            conn.execute(
+                "INSERT INTO cooked_deduction (day, pantry_id, amount)"
+                " VALUES (?, ?, ?)",
+                (day.isoformat(), item_id, str(value)),
+            )
+        return [
+            (used[item_id].name, Amount(value, used[item_id].amount.unit))
+            for item_id, value in taken.items()
+        ]
+
+
+def uncook(conn: sqlite3.Connection, day: datetime.date) -> None:
+    """Undoes ``cook``: puts back exactly what it took and clears the mark.
+
+    Items that have been deleted from the pantry since are skipped. Does
+    nothing for a day that was not cooked.
+
+    Args:
+        conn: Open database connection.
+        day: The date.
+    """
+    with db.transaction(conn):
+        rows = conn.execute(
+            "SELECT pantry_id, amount FROM cooked_deduction WHERE day = ?",
+            (day.isoformat(),),
+        ).fetchall()
+        for row in rows:
+            pantry.adjust(conn, row["pantry_id"], Fraction(row["amount"]))
+        conn.execute("DELETE FROM cooked_day WHERE day = ?", (day.isoformat(),))
 
 
 def recent_recipe_ids(

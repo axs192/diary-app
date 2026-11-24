@@ -9,6 +9,7 @@ import fastapi
 from fastapi import responses
 
 from diary_app import db, mealplan, planner, recipes
+from diary_app.ingredients import Amount
 from diary_app.web import common
 
 router = common.protected_router()
@@ -217,6 +218,40 @@ def submit_remove_day(
         return common.rejected(request, conn, "Pick a day.", back="/meals")
     mealplan.clear_day(conn, planned_day)
     return common.back_to(_meals_url(mealplan.monday_of(planned_day)))
+
+
+@router.post("/meals/day/cooked", response_model=None)
+def submit_cooked(
+    request: fastapi.Request, conn: common.Db, day: common.FormText = ""
+) -> responses.Response:
+    """Marks a day's dinner as cooked and uses up its food in the pantry."""
+    planned_day = parse_day(day)
+    if planned_day is None:
+        return common.rejected(request, conn, "Pick a day.", back="/meals")
+    request.session[_FLASH_KEY] = _took_summary(
+        mealplan.cook(conn, planned_day)
+    )
+    return common.back_to(_meals_url(mealplan.monday_of(planned_day)))
+
+
+@router.post("/meals/day/uncooked", response_model=None)
+def submit_uncooked(
+    request: fastapi.Request, conn: common.Db, day: common.FormText = ""
+) -> responses.Response:
+    """Undoes "Cooked it", putting the food back in the pantry."""
+    planned_day = parse_day(day)
+    if planned_day is None:
+        return common.rejected(request, conn, "Pick a day.", back="/meals")
+    mealplan.uncook(conn, planned_day)
+    request.session[_FLASH_KEY] = "Put the food back in the pantry."
+    return common.back_to(_meals_url(mealplan.monday_of(planned_day)))
+
+
+def _took_summary(took: list[tuple[str, Amount]]) -> str:
+    if not took:
+        return "Cooked. Nothing in the pantry needed using."
+    items = ", ".join(f"{amount.format()} {name}" for name, amount in took)
+    return f"Took {items} from the pantry."
 
 
 @router.post("/meals/clear")

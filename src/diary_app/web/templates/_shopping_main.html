@@ -1,0 +1,178 @@
+{% from "_macros.html" import acc_head %}
+{% if flash %}<p class="notice" role="status">{{ flash }}</p>{% endif %}
+
+<section class="card" aria-label="Generate the list">
+  <form method="post" action="/shopping/generate" data-swap="shopping-main">
+    <input type="hidden" name="week" value="{{ week }}">
+    <h2 class="section-title">Generate the list</h2>
+    <p class="muted">Tick the days to shop for. The list is what those dinners need, less what the pantry already has.{% if generated_label %} Generated for {{ generated_label }}.{% endif %}</p>
+    <div class="row" role="group" aria-label="Days">
+      {% for d in day_choices %}
+      <label class="choice">
+        <input type="checkbox" name="days" value="{{ d.day.isoformat() }}"{% if d.checked %} checked{% endif %}{% if d.note %} disabled{% endif %}>
+        <span class="choice-body option">{{ d.label }}{% if d.note %} <span class="muted-inline">&nbsp;{{ d.note }}</span>{% endif %}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button class="btn btn-primary accent-bg" type="submit">Generate list</button>
+  </form>
+</section>
+
+<div class="row panels">
+  <section class="card panel panel-list" aria-label="Shopping list">
+    <p class="shop-summary"><strong>{{ listing.remaining }}</strong> left to buy · {{ listing.ticked }} ticked</p>
+    {% if not listing.aisles and not listing.covered and not listing.extras %}
+    <p class="muted">{% if listing.generated_for %}Nothing to buy for those days.{% else %}Nothing here yet. Generate the list above, or add your own items below.{% endif %}</p>
+    {% endif %}
+
+    {% for a in aisle_views %}
+    <form method="post" action="/shopping/tick" data-swap="shopping-main">
+      <input type="hidden" name="week" value="{{ week }}">
+      <input type="hidden" name="open" value="{{ a.id }}">
+      <details class="acc" id="{{ a.id }}"{% if a.id == open_id %} open{% endif %}>
+        {{ acc_head(a.name, a.left ~ " left") }}
+        <div class="acc-body">
+          <ul class="shop-list">
+            {% for item in a.rows %}
+            <li id="item-{{ item.id }}"><button type="submit" name="item" value="{{ item.id }}" class="shop-row{% if item.ticked %} shop-ticked{% endif %}" aria-pressed="{{ 'true' if item.ticked else 'false' }}"><span class="shop-name">{{ item.name }}</span>{% if item.amount %}<span class="shop-qty">{{ item.amount.format() }}</span>{% endif %}{% if item.have %}<span class="shop-have">have {{ item.have }}</span>{% endif %}</button><a class="btn btn-small" href="/shopping/item/{{ item.id }}/edit?week={{ week }}">Edit</a></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </details>
+    </form>
+    {% endfor %}
+
+    {% if listing.covered %}
+    <details class="acc" id="covered"{% if open_id == "covered" %} open{% endif %}>
+      {{ acc_head("Already in the pantry", listing.covered|length) }}
+      <div class="acc-body">
+        <p class="muted">The pantry holds enough of these. If one is wrong (the pantry matches by words, so "milk" also covers "coconut milk"), add it to your own items.</p>
+        <ul class="shop-list">
+          {% for item in listing.covered %}
+          <li class="shop-static"><span class="shop-name">{{ item.name }}</span>{% if item.amount %}<span class="shop-qty">need {{ item.amount.format() }}</span>{% endif %}<span class="shop-have">have {{ item.have }}</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </details>
+    {% endif %}
+
+    <h2 class="section-title shop-heading" id="your-items">Your items</h2>
+    <details class="acc" id="extras-add"{% if open_id == "extras-add" %} open{% endif %}>
+      {{ acc_head("Add an item") }}
+      <div class="acc-body">
+        <form method="post" action="/shopping/extras" data-swap="shopping-main">
+          <input type="hidden" name="week" value="{{ week }}">
+          <label class="label" for="extra-text">Item</label>
+          <input class="input" id="extra-text" name="text" type="text" maxlength="60" placeholder="e.g. Kitchen roll">
+          <div class="inline-fields">
+            <div class="field-grow">
+              <label class="label" for="extra-amount">Amount (optional)</label>
+              <input class="input" id="extra-amount" name="amount" type="number" inputmode="decimal" min="0" step="any">
+            </div>
+            <div class="field-grow">
+              <label class="label" for="extra-unit">Unit</label>
+              <select class="input" id="extra-unit" name="unit">{% for u in units %}<option value="{{ u }}">{{ u }}</option>{% endfor %}</select>
+            </div>
+          </div>
+          <button class="btn btn-primary accent-bg" type="submit">Add to list</button>
+        </form>
+      </div>
+    </details>
+    {% if listing.extras %}
+    <form method="post" action="/shopping/tick" data-swap="shopping-main">
+      <input type="hidden" name="week" value="{{ week }}">
+      <ul class="shop-list">
+        {% for item in listing.extras %}
+        <li id="item-{{ item.id }}" class="shop-extra"><button type="submit" name="item" value="{{ item.id }}" class="shop-row{% if item.ticked %} shop-ticked{% endif %}" aria-pressed="{{ 'true' if item.ticked else 'false' }}"><span class="shop-name">{{ item.name }}</span>{% if item.amount %}<span class="shop-qty">{{ item.amount.format() }}</span>{% endif %}</button><a class="btn btn-small" href="/shopping/item/{{ item.id }}/edit?week={{ week }}">Edit</a><button type="submit" name="item" value="{{ item.id }}" formaction="/shopping/extras/remove" class="btn btn-small" aria-label="Remove {{ item.name }}">Remove</button></li>
+        {% endfor %}
+      </ul>
+    </form>
+    {% endif %}
+
+    {% if listing.ticked %}
+    <form method="post" action="/shopping/done" data-swap="shopping-main" class="shop-done">
+      <input type="hidden" name="week" value="{{ week }}">
+      <p class="muted">Bought it all? This adds the ticked items to the pantry and clears them from the list.</p>
+      <button class="btn btn-primary accent-bg" type="submit">Done shopping ({{ listing.ticked }})</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <aside class="card panel panel-pantry" aria-label="Pantry" id="pantry">
+    <h2 class="section-title">Pantry</h2>
+    {% if soon %}
+    <div class="use-soon">
+      <h3 class="use-soon-title">Use soon</h3>
+      <ul class="plain-list">
+        {% for item, use_by in soon %}
+        <li><strong>{{ item.name }}</strong> <span class="chip chip-{{ use_by.urgency }}">{{ use_by.chip }}</span></li>
+        {% endfor %}
+      </ul>
+      {% if soon_meals %}
+      <p class="use-soon-meals">Meals that use these:</p>
+      <ul class="plain-list">
+        {% for recipe in soon_meals %}<li><a href="/recipes/{{ recipe.id }}">{{ recipe.name }}</a></li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <details class="acc" id="pantry-add"{% if open_id == "pantry-add" %} open{% endif %}>
+      {{ acc_head("Add to the pantry") }}
+      <div class="acc-body">
+        <form method="post" action="/pantry" data-swap="shopping-main">
+          <input type="hidden" name="week" value="{{ week }}">
+          <label class="label" for="pantry-name">Item</label>
+          <input class="input" id="pantry-name" name="name" type="text" maxlength="60" placeholder="e.g. Natural yoghurt">
+          <div class="inline-fields">
+            <div class="field-grow">
+              <label class="label" for="pantry-amount">Amount</label>
+              <input class="input" id="pantry-amount" name="amount" type="number" inputmode="decimal" min="0" step="any" value="1">
+            </div>
+            <div class="field-grow">
+              <label class="label" for="pantry-unit">Unit</label>
+              <select class="input" id="pantry-unit" name="unit">{% for u in units %}<option value="{{ u }}">{{ u }}</option>{% endfor %}</select>
+            </div>
+          </div>
+          <div class="inline-fields">
+            <div class="field-grow">
+              <label class="label" for="pantry-shelf">Kept in</label>
+              <select class="input" id="pantry-shelf" name="shelf">{% for s in shelves %}<option value="{{ s }}"{% if s == "Cupboard" %} selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+            </div>
+            <div class="field-grow">
+              <label class="label" for="pantry-date">Use by (optional)</label>
+              <input class="input" id="pantry-date" name="expires_on" type="date">
+            </div>
+          </div>
+          <button class="btn btn-primary accent-bg" type="submit">Add to pantry</button>
+        </form>
+      </div>
+    </details>
+
+    {% if not shelf_views %}<p class="muted">Nothing in the pantry yet.</p>{% endif %}
+    {% for shelf in shelf_views %}
+    <form method="post" action="/pantry/row" data-swap="shopping-main">
+      <input type="hidden" name="week" value="{{ week }}">
+      <input type="hidden" name="open" value="{{ shelf.id }}">
+      <details class="acc" id="{{ shelf.id }}"{% if shelf.id == open_id %} open{% endif %}>
+        {{ acc_head(shelf.name, shelf.rows|length ~ (" item" if shelf.rows|length == 1 else " items")) }}
+        <div class="acc-body">
+          <ul class="pantry-list">
+            {% for item, use_by in shelf.rows %}
+            <li class="pantry-row">
+              <span class="pantry-info"><strong class="pantry-name">{{ item.name }}</strong><br>{% if item.amount.is_zero %}None left{% else %}{{ item.amount.format() }}{% endif %}{% if use_by %} · {{ use_by.text }}{% if use_by.chip %} <span class="chip chip-{{ use_by.urgency }}">{{ use_by.chip }}</span>{% endif %}{% endif %}</span>
+              <span class="pantry-actions">
+                <button type="submit" name="action" value="{{ item.id }}:minus" class="btn btn-small" aria-label="Less {{ item.name }}">&minus;</button>
+                <button type="submit" name="action" value="{{ item.id }}:plus" class="btn btn-small" aria-label="More {{ item.name }}">+</button>
+                <button type="submit" name="action" value="{{ item.id }}:list" class="btn btn-small">Add to list</button>
+                <a class="btn btn-small" href="/pantry/{{ item.id }}/edit?week={{ week }}">Edit</a>
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </details>
+    </form>
+    {% endfor %}
+  </aside>
+</div>

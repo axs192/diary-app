@@ -42,6 +42,20 @@
       </form>
       {{ heart(d.recipe, here) }}
     </div>
+    <div class="row day-actions">
+      {% if d.cooked %}
+      <span class="chip chip-have">Cooked</span>
+      <form class="inline-form" method="post" action="/meals/day/uncooked">
+        <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
+        <button class="btn btn-small" type="submit">Undo</button>
+      </form>
+      {% else %}
+      <form class="inline-form" method="post" action="/meals/day/cooked">
+        <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
+        <button class="btn btn-small" type="submit">Cooked it</button>
+      </form>
+      {% endif %}
+    </div>
     {% else %}
     <p class="muted">Nothing planned</p>
     <a class="btn btn-small" href="{{ here_week }}&amp;tab=ideas&amp;day={{ d.day.isoformat() }}#library">Add a meal</a>
