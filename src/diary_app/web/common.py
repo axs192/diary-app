@@ -84,6 +84,22 @@ def render(
     )
 
 
+def render_fragment(
+    request: fastapi.Request, template: str, **context: object
+) -> responses.HTMLResponse:
+    """Renders part of a page, without the app shell.
+
+    Args:
+        request: The current request.
+        template: Template file name of the fragment.
+        **context: Values for the template.
+
+    Returns:
+        The rendered fragment.
+    """
+    return TEMPLATES.TemplateResponse(request, template, context)
+
+
 def back_to(url: str) -> responses.RedirectResponse:
     """Redirects after a form post (303, so the browser re-fetches by GET).
 

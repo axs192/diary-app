@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import tag_chips, heart, day_select %}
+{% from "_macros.html" import tag_chips, heart %}
 {% block title %}Diary · Meals{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -92,34 +92,13 @@
   <h2 class="section-title">Meals</h2>
   <nav class="row tabs" aria-label="Library">
     {% for key, label in tabs %}
-    <a class="btn btn-small tab" href="{{ here_week }}&amp;tab={{ key }}#library"{% if key == tab %} aria-current="page"{% endif %}>{{ label }}</a>
+    <a class="btn btn-small tab" href="{{ here_week }}&amp;tab={{ key }}#library" data-fragment="{{ fragment_week }}&amp;tab={{ key }}{% if day_param %}&amp;day={{ day_param }}{% endif %}"{% if key == tab %} aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
     <a class="btn btn-small" href="/recipes/new">Add your own meal</a>
     <a class="btn btn-small" href="/recipes/import">Import</a>
   </nav>
-  {% if tab == "ideas" and style != "Mixed" %}<p class="muted">Showing {{ style }} meals not yet planned this week.</p>{% endif %}
-  {% if library %}
-  <ul class="lib">
-    {% for r in library %}
-    <li class="lib-row">
-      <div class="lib-main">
-        <a class="lib-name" href="/recipes/{{ r.id }}">{{ r.name }}</a>
-        <div class="meta">{{ r.mins }} min &middot; {{ r.style }}</div>
-        {{ tag_chips(r.tags) }}
-      </div>
-      <div class="row lib-actions">
-        <form class="inline-form row" method="post" action="/meals/day">
-          <input type="hidden" name="recipe_id" value="{{ r.id }}">
-          {{ day_select(days|map(attribute="day")|list, selected_day) }}
-          <button class="btn btn-small" type="submit">Add to day</button>
-        </form>
-        {{ heart(r, here) }}
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="muted">{% if tab == "favourites" %}No favourites yet. Tap the heart on a meal.{% elif library_total == 0 %}Nothing here yet.{% else %}No meals to show here.{% endif %}</p>
-  {% endif %}
+  <div id="library-list">
+{% include "_library.html" %}
+  </div>
 </section>
 {% endblock %}

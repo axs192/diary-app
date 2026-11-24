@@ -146,6 +146,15 @@ alone. Forms are plain `POST` then `303` redirects, which stay inside the app.
   `ERROR_BANNER=false` in `/etc/diary-app/diary-app.env` (then restart the
   service) to hide it.
 
+- **Meals tabs.** Ideas / Favourites / My meals at the bottom of the Meals
+  page are real links, so they work with no script. With `app.js` they fetch
+  just the list from `GET /meals/library` (same query as the page, shared in
+  `meals._library_context`) and swap it in place, so a tab tap is not a page
+  load. If the fetch fails, the tab falls back to a normal page load. Note the
+  list is most of the page's weight, so this removes the navigation (and the
+  black backdrop it flashed on the iPad), not the cost of drawing the list.
+  If a large library still feels slow, paginate the list.
+
 Not yet done: saving UI state in `localStorage`. There is no client-side state
 worth saving yet (every view is its own URL); add it when a feature needs it.
 

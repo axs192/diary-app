@@ -2,7 +2,7 @@
  * Safari, so no arrow functions, let/const, template literals, fetch, or
  * Element.closest. There is no build step to transpile for us.
  *
- * It does three jobs, each small and independent:
+ * It does four jobs, each small and independent:
  *
  * 1. Links. In an iOS 9 Home Screen (standalone) app, tapping a plain
  *    same-origin <a href> opens Safari instead of navigating in place. Guided
@@ -21,6 +21,11 @@
  * 3. Errors. The iPad has no Web Inspector, so a script error shows in a small
  *    dismissible banner (message, file, line). <body data-error-banner="off">
  *    turns this off (the ERROR_BANNER setting on the server).
+ *
+ * 4. Meals tabs. Ideas / Favourites / My meals are real links, but a full
+ *    page load of the long Meals page flashes black on the iPad while it
+ *    paints. A tab with data-fragment fetches just the list and swaps it into
+ *    #library-list instead, falling back to the normal link if that fails.
  */
 (function () {
   var POLL_MS = 30000;
@@ -44,12 +49,84 @@
     return el;
   }
 
+  function hasClass(el, name) {
+    return (' ' + el.className + ' ').indexOf(' ' + name + ' ') !== -1;
+  }
+
+  function addClass(el, name) {
+    if (!hasClass(el, name)) {
+      el.className = el.className ? el.className + ' ' + name : name;
+    }
+  }
+
+  function removeClass(el, name) {
+    el.className = (' ' + el.className + ' ').replace(' ' + name + ' ', ' ')
+      .replace(/^\s+|\s+$/g, '');
+  }
+
+  // --- 4. Meals tabs ------------------------------------------------------
+
+  var swapCount = 0; // which tap is current, so a late answer can be ignored
+
+  function markCurrent(tab) {
+    var tabs = tab.parentNode.children;
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].getAttribute('data-fragment')) {
+        tabs[i].removeAttribute('aria-current');
+      }
+    }
+    tab.setAttribute('aria-current', 'page');
+  }
+
+  // Swaps the library list for the one at `url`. If that cannot be done, the
+  // tab does what it always did: load the whole page.
+  function swapLibrary(tab, url) {
+    var list = document.getElementById('library-list');
+    if (!list) {
+      location.href = tab.href;
+      return;
+    }
+    var mine = ++swapCount;
+    addClass(list, 'lib-busy');
+
+    function fallBack() {
+      if (mine === swapCount) {
+        removeClass(list, 'lib-busy');
+        location.href = tab.href;
+      }
+    }
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.timeout = 15000;
+    xhr.onload = function () {
+      if (mine !== swapCount) {
+        return; // a later tap has taken over
+      }
+      if (xhr.status !== 200) {
+        fallBack();
+        return;
+      }
+      list.innerHTML = xhr.responseText;
+      removeClass(list, 'lib-busy');
+      markCurrent(tab);
+    };
+    xhr.onerror = fallBack;
+    xhr.ontimeout = fallBack;
+    xhr.send();
+  }
+
   // --- 1. Links -----------------------------------------------------------
 
   document.addEventListener('click', function (e) {
     var a = e.target;
     while (a && a.nodeName !== 'A') {
       a = a.parentNode;
+    }
+    if (a && a.getAttribute('data-fragment')) {
+      e.preventDefault();
+      swapLibrary(a, a.getAttribute('data-fragment'));
+      return;
     }
     if (!a || !a.href || !isSameOrigin(a.href)) {
       return; // not a link, or an external one: leave it alone

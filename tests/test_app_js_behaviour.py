@@ -145,6 +145,57 @@ class AppJsBehaviourTest(unittest.TestCase):
         self.assertEqual(r["whileDown"], 0)
         self.assertEqual(r["afterRecovery"], 1)
 
+    # --- Meals library tabs --------------------------------------------
+
+    def test_a_tab_swaps_the_list_without_navigating(self) -> None:
+        r = self.results["tabSwap"]
+        self.assertTrue(r["prevented"])
+        self.assertEqual(r["navigations"], [])
+        self.assertEqual(
+            r["requested"],
+            ["/meals/library?week=2030-01-07&tab=favourites"],
+        )
+        self.assertEqual(r["html"], "<ul>FAVOURITES</ul>")
+
+    def test_the_list_shows_busy_until_the_new_one_arrives(self) -> None:
+        r = self.results["tabSwap"]
+        self.assertTrue(r["during"]["busy"])
+        self.assertEqual(r["during"]["html"], "<ul>IDEAS</ul>")  # not blank
+        self.assertFalse(r["busyAfter"])
+
+    def test_the_tapped_tab_becomes_the_current_one(self) -> None:
+        self.assertEqual(self.results["tabSwap"]["current"], ["favourites"])
+
+    def test_a_tap_inside_a_tab_counts(self) -> None:
+        r = self.results["tabChild"]
+        self.assertEqual(r["html"], "<ul>MINE</ul>")
+        self.assertEqual(r["current"], ["mine"])
+
+    def test_a_failed_swap_falls_back_to_a_normal_page_load(self) -> None:
+        for key in ("tabFails_down", "tabFails_timeout", "tabFails_500"):
+            r = self.results[key]
+            self.assertEqual(
+                r["navigations"],
+                [
+                    "http://diary.test:8000/meals?week=2030-01-07&tab=mine#library"
+                ],
+                key,
+            )
+            self.assertEqual(r["html"], "<ul>IDEAS</ul>", key)  # untouched
+            self.assertEqual(r["current"], ["ideas"], key)
+            self.assertFalse(r["busyAfter"], key)
+
+    def test_a_late_answer_for_an_earlier_tap_is_ignored(self) -> None:
+        r = self.results["tabStale"]
+        self.assertEqual(r["html"], "<ul>FAST</ul>")
+        self.assertEqual(r["current"], ["mine"])
+        self.assertFalse(r["busyAfter"])
+
+    def test_other_links_on_that_page_still_navigate(self) -> None:
+        r = self.results["tabsPageOtherLink"]
+        self.assertTrue(r["prevented"])
+        self.assertEqual(r["to"], ["http://diary.test:8000/settings"])
+
 
 if __name__ == "__main__":
     unittest.main()
