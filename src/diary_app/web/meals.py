@@ -3,6 +3,7 @@
 import datetime
 import re
 import sqlite3
+from typing import Any
 
 import fastapi
 from fastapi import responses
@@ -84,6 +85,58 @@ def _meals_url(monday: datetime.date) -> str:
     return f"/meals?week={monday.isoformat()}"
 
 
+def _library_context(
+    conn: sqlite3.Connection,
+    monday: datetime.date,
+    days: list[mealplan.PlannedDay],
+    tab: str,
+    day: str,
+) -> dict[str, Any]:
+    """Gathers what the library list needs, for the full page and the fragment.
+
+    Both are built from this one function so a tab swapped in place always
+    lists exactly what a full page load of that tab would.
+
+    Args:
+        conn: Open database connection.
+        monday: The Monday of the week being planned.
+        days: That week's seven planned days.
+        tab: ``ideas``, ``favourites`` or ``mine``; anything else is ``ideas``.
+        day: The day to preselect for "Add to day", as ``YYYY-MM-DD``, or
+            empty to preselect the week's first empty day.
+
+    Returns:
+        Template values for ``_library.html`` and the page that holds it.
+    """
+    tab = tab if tab in dict(_TABS) else "ideas"
+    style = db.get_setting(conn, _STYLE_KEY, planner.MIXED)
+    if tab == "favourites":
+        library = recipes.search(conn, favourites_only=True)
+    elif tab == "mine":
+        library = recipes.search(conn)
+    else:
+        library = recipes.search(
+            conn,
+            style=None if style == planner.MIXED else style,
+            exclude_ids=[d.recipe.id for d in days if d.recipe],
+        )
+    preselected = parse_day(day)
+    first_empty = next((d.day for d in days if d.recipe is None), monday)
+    return {
+        "tabs": _TABS,
+        "tab": tab,
+        "days": days,
+        "style": style,
+        "library": library,
+        "library_total": len(recipes.search(conn)),
+        "selected_day": preselected or first_empty,
+        "day_param": preselected.isoformat() if preselected else "",
+        "here": f"{_meals_url(monday)}&tab={tab}",
+        "here_week": _meals_url(monday),
+        "fragment_week": f"/meals/library?week={monday.isoformat()}",
+    }
+
+
 @router.get("/meals")
 def show_meals(
     request: fastapi.Request,
@@ -94,45 +147,45 @@ def show_meals(
 ) -> responses.HTMLResponse:
     """Shows one week's plan with the meal library beside it."""
     monday = _week_of(week)
-    tab = tab if tab in dict(_TABS) else "ideas"
     days = mealplan.week(conn, monday)
-    planned_ids = [d.recipe.id for d in days if d.recipe]
-    style = db.get_setting(conn, _STYLE_KEY, planner.MIXED)
-    if tab == "favourites":
-        library = recipes.search(conn, favourites_only=True)
-    elif tab == "mine":
-        library = recipes.search(conn)
-    else:
-        library = recipes.search(
-            conn,
-            style=None if style == planner.MIXED else style,
-            exclude_ids=planned_ids,
-        )
-    preselected = parse_day(day)
-    first_empty = next((d.day for d in days if d.recipe is None), monday)
-    here = f"{_meals_url(monday)}&tab={tab}"
     return common.render(
         request,
         conn,
         "meals.html",
         monday=monday,
-        days=days,
         today=datetime.date.today(),
         prev_week=_meals_url(monday - datetime.timedelta(days=7)),
         next_week=_meals_url(monday + datetime.timedelta(days=7)),
-        tabs=_TABS,
-        tab=tab,
-        library=library,
-        library_total=len(recipes.search(conn)),
-        selected_day=preselected or first_empty,
-        here=here,
-        here_week=_meals_url(monday),
         styles=_STYLES,
-        style=style,
         priority_labels=_PRIORITY_LABELS,
         priorities=_chosen_priorities(conn),
         bars=mealplan.balance(days),
         flash=request.session.pop(_FLASH_KEY, ""),
+        **_library_context(conn, monday, days, tab, day),
+    )
+
+
+@router.get("/meals/library")
+def show_library(
+    request: fastapi.Request,
+    conn: common.Db,
+    week: str = "",
+    tab: str = "ideas",
+    day: str = "",
+) -> responses.HTMLResponse:
+    """Returns just the library list, so a tab can swap it in place.
+
+    The Meals page links each tab here (``data-fragment``); ``app.js`` fetches
+    it instead of reloading the whole page, which is slow to paint on the
+    kitchen iPad.
+    """
+    monday = _week_of(week)
+    days = mealplan.week(conn, monday)
+    return common.render_fragment(
+        request,
+        "_library.html",
+        monday=monday,
+        **_library_context(conn, monday, days, tab, day),
     )
 
 

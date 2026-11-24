@@ -307,6 +307,7 @@ select.input { background-color: #FAFBF8; }
 .tabs { margin-bottom: 12px; align-items: center; }
 .tab[aria-current="page"] { background: #1C2321; color: #FFFFFF; border-color: #1C2321; }
 .lib { list-style: none; margin: 0; padding: 0; }
+#library-list.lib-busy { opacity: 0.5; }
 .lib-row {
   display: flex;
   flex-wrap: wrap;

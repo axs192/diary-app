@@ -25,6 +25,8 @@ class El {
     return this.ownText + this.children.map((c) => c.textContent).join('');
   }
   set textContent(v) { this.ownText = String(v); this.children = []; }
+  get innerHTML() { return this.html || ''; }
+  set innerHTML(v) { this.html = String(v); this.children = []; this.ownText = ''; }
   get href() {
     const h = this.attrs.href;
     if (h === undefined) return '';
@@ -39,6 +41,7 @@ class El {
   setAttribute(k, v) { this.attrs[k] = String(v); }
   getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
   hasAttribute(k) { return k in this.attrs; }
+  removeAttribute(k) { delete this.attrs[k]; }
   addEventListener(type, fn) {
     (this.listeners[type] = this.listeners[type] || []).push(fn);
   }
@@ -59,6 +62,8 @@ function makeBrowser(opts) {
   let nextId = 1;
   const state = {
     server: 'up', // 'up' | 'down' | 'timeout' | a status number
+    // Per-address answers: { body, status, mode: 'ok'|'down', delay }.
+    responses: {},
     requests: [],
     reloads: 0,
     navigations: [],
@@ -85,15 +90,18 @@ function makeBrowser(opts) {
     open(method, url) { this.method = method; this.url = url; }
     send() {
       state.requests.push(this.url);
-      const s = state.server;
+      const custom = state.responses[this.url];
+      const mode = custom ? (custom.mode || 'ok') : state.server;
       addTimer(() => {
-        if (s === 'down') { if (this.onerror) this.onerror(); }
-        else if (s === 'timeout') { if (this.ontimeout) this.ontimeout(); }
+        if (mode === 'down') { if (this.onerror) this.onerror(); }
+        else if (mode === 'timeout') { if (this.ontimeout) this.ontimeout(); }
         else {
-          this.status = s === 'up' ? 200 : s;
+          this.status = custom ? (custom.status || 200)
+            : (mode === 'up' ? 200 : mode);
+          this.responseText = custom ? custom.body : '';
           if (this.onload) this.onload();
         }
-      }, 0, false);
+      }, custom && custom.delay || 0, false);
     }
   }
 
@@ -108,6 +116,15 @@ function makeBrowser(opts) {
       (this.listeners[type] = this.listeners[type] || []).push(fn);
     },
     createElement: (tag) => new El(tag),
+    getElementById(id) {
+      let found = null;
+      const walk = (n) => {
+        if (!found && n.attrs.id === id) found = n;
+        n.children.forEach(walk);
+      };
+      walk(body);
+      return found;
+    },
   };
   const location = {
     protocol: 'http:',
@@ -155,6 +172,27 @@ function makeBrowser(opts) {
     fire('click', event);
     return event;
   }
+  // The Meals library: three tabs and the list they swap.
+  function tabsPage(week) {
+    const nav = new El('nav');
+    body.appendChild(nav);
+    const tabs = {};
+    ['ideas', 'favourites', 'mine'].forEach((name) => {
+      const a = new El('a');
+      a.className = 'btn btn-small tab';
+      a.setAttribute('href', '/meals?week=' + week + '&tab=' + name + '#library');
+      a.setAttribute('data-fragment',
+        '/meals/library?week=' + week + '&tab=' + name);
+      if (name === 'ideas') a.setAttribute('aria-current', 'page');
+      nav.appendChild(a);
+      tabs[name] = a;
+    });
+    const list = new El('div');
+    list.setAttribute('id', 'library-list');
+    list.innerHTML = '<ul>IDEAS</ul>';
+    body.appendChild(list);
+    return { tabs, list };
+  }
   function link(href, attrs) {
     const a = new El('a');
     a.setAttribute('href', href);
@@ -163,7 +201,9 @@ function makeBrowser(opts) {
     return a;
   }
 
-  return { state, body, window: sandbox, advance, fire, click, link, El, clock };
+  return {
+    state, body, window: sandbox, advance, fire, click, link, tabsPage, El, clock,
+  };
 }
 
 module.exports = { makeBrowser, ORIGIN };

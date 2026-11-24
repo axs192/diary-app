@@ -136,4 +136,67 @@ out.reloadFromJustAfter3 = firstReload(3, 0, 10); // next 03:00 is 24 h away -> 
   out.reloadWaitsForServer = { whileDown, afterRecovery: b.state.reloads };
 }
 
+// --- Meals library tabs ----------------------------------------------------------
+const WEEK = '2030-01-07';
+const frag = (tab) => '/meals/library?week=' + WEEK + '&tab=' + tab;
+const currentTab = (tabs) => Object.keys(tabs).filter(
+  (k) => tabs[k].getAttribute('aria-current') === 'page');
+{
+  const b = makeBrowser({ now: at(10) });
+  const { tabs, list } = b.tabsPage(WEEK);
+  b.state.responses[frag('favourites')] = { body: '<ul>FAVOURITES</ul>' };
+  const e = b.click(tabs.favourites);
+  const during = { busy: list.className.indexOf('lib-busy') !== -1,
+    html: list.innerHTML };
+  b.advance(1);
+  out.tabSwap = {
+    prevented: e.defaultPrevented, navigations: b.state.navigations,
+    requested: b.state.requests.filter((u) => u.indexOf('/meals/') === 0),
+    during, html: list.innerHTML,
+    busyAfter: list.className.indexOf('lib-busy') !== -1,
+    current: currentTab(tabs),
+  };
+}
+{
+  const b = makeBrowser({ now: at(10) });
+  const { tabs, list } = b.tabsPage(WEEK);
+  const span = new b.El('span');
+  tabs.mine.appendChild(span);
+  b.state.responses[frag('mine')] = { body: '<ul>MINE</ul>' };
+  b.click(span);                      // a tap on something inside the tab
+  b.advance(1);
+  out.tabChild = { html: list.innerHTML, current: currentTab(tabs) };
+}
+['down', 'timeout'].concat([500]).forEach((fail) => {
+  const b = makeBrowser({ now: at(10) });
+  const { tabs, list } = b.tabsPage(WEEK);
+  b.state.responses[frag('mine')] = typeof fail === 'number'
+    ? { status: fail, body: 'oops' } : { mode: fail };
+  b.click(tabs.mine);
+  b.advance(1);
+  out['tabFails_' + fail] = {
+    navigations: b.state.navigations, html: list.innerHTML,
+    current: currentTab(tabs),
+    busyAfter: list.className.indexOf('lib-busy') !== -1,
+  };
+});
+{
+  const b = makeBrowser({ now: at(10) });
+  const { tabs, list } = b.tabsPage(WEEK);
+  b.state.responses[frag('favourites')] = { body: '<ul>SLOW</ul>', delay: 2000 };
+  b.state.responses[frag('mine')] = { body: '<ul>FAST</ul>', delay: 100 };
+  b.click(tabs.favourites);
+  b.click(tabs.mine);
+  b.advance(3000);
+  out.tabStale = { html: list.innerHTML, current: currentTab(tabs),
+    busyAfter: list.className.indexOf('lib-busy') !== -1 };
+}
+{
+  const b = makeBrowser({ now: at(10) });
+  b.tabsPage(WEEK);
+  const other = b.link('/settings');
+  const e = b.click(other);
+  out.tabsPageOtherLink = { prevented: e.defaultPrevented, to: b.state.navigations };
+}
+
 process.stdout.write(JSON.stringify(out));
