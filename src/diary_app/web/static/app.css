@@ -441,7 +441,7 @@ details[open] > .acc-head .chev { transform: rotate(90deg); }
 .shop-static { flex-wrap: wrap; min-height: 44px; padding: 6px 4px; }
 .shop-ticked .shop-name { color: #7A847F; text-decoration: line-through; }
 .shop-ticked .shop-qty { color: #7A847F; }
-.shop-extra .btn { flex: none; margin: 4px 0 4px 8px; }
+.shop-list li > .btn { flex: none; margin: 4px 0 4px 8px; }
 .shop-done { margin-top: 16px; }
 .shop-text { width: 100%; box-sizing: border-box; margin-bottom: 12px; font-family: inherit; }
 .inline-fields { display: flex; flex-wrap: wrap; margin: 0 -4px; }

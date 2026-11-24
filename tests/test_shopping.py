@@ -1,5 +1,6 @@
 """Tests for the diary_app.shopping public interface."""
 
+import dataclasses
 import datetime
 import unittest
 from fractions import Fraction
@@ -292,6 +293,77 @@ class OwnItemsTest(_ShoppingTestCase):
         )
 
 
+class EditItemTest(_ShoppingTestCase):
+    """Any row on the list can be corrected: its name and its amount."""
+
+    def test_get_item_finds_a_row_by_id(self) -> None:
+        item = shopping.add_extra(self.conn, _MON, "Honey", _a(1, "jar"))
+        self.assertEqual(shopping.get_item(self.conn, item.id), item)
+        with self.assertRaises(LookupError):
+            shopping.get_item(self.conn, 999)
+
+    def test_an_own_item_can_be_renamed_and_given_an_amount(self) -> None:
+        item = shopping.add_extra(self.conn, _MON, "Honey")
+        shopping.toggle(self.conn, item.id)
+        got = shopping.update_item(
+            self.conn,
+            dataclasses.replace(
+                item, name="  Runny honey ", amount=_a(2, "jar")
+            ),
+        )
+        self.assertEqual((got.name, got.amount), ("Runny honey", _a(2, "jar")))
+        self.assertEqual(shopping.get_item(self.conn, item.id), got)
+        self.assertTrue(got.ticked)  # editing does not untick it
+
+    def test_a_row_made_from_a_meal_can_be_edited_too(self) -> None:
+        self.plan(_MON, "2 onions", "1 leek")
+        row = next(
+            i
+            for a in self.generate(_MON).aisles
+            for i in a.items
+            if i.name == "Onions"
+        )
+        shopping.update_item(
+            self.conn, dataclasses.replace(row, name="Red onions", amount=_a(3))
+        )
+        self.assertEqual(
+            self.to_buy(shopping.get_list(self.conn, _MON)),
+            {"Red onions": "3", "Leek": "1"},
+        )
+
+    def test_a_new_name_can_move_it_to_another_aisle(self) -> None:
+        self.plan(_MON, "2 onions")
+        (row,) = self.generate(_MON).aisles[0].items
+        shopping.update_item(self.conn, dataclasses.replace(row, name="Milk"))
+        got = shopping.get_list(self.conn, _MON)
+        self.assertEqual([a.name for a in got.aisles], ["Dairy & eggs"])
+
+    def test_the_amount_can_be_cleared(self) -> None:
+        item = shopping.add_extra(self.conn, _MON, "Honey", _a(2, "jar"))
+        got = shopping.update_item(
+            self.conn, dataclasses.replace(item, amount=None)
+        )
+        self.assertIsNone(got.amount)
+
+    def test_bad_names_are_refused_and_nothing_changes(self) -> None:
+        item = shopping.add_extra(self.conn, _MON, "Honey")
+        for name in ("", "   ", "x" * 61):
+            with (
+                self.subTest(name=name),
+                self.assertRaises(shopping.InvalidItemError),
+            ):
+                shopping.update_item(
+                    self.conn, dataclasses.replace(item, name=name)
+                )
+        self.assertEqual(shopping.get_item(self.conn, item.id).name, "Honey")
+
+    def test_a_missing_item_is_a_lookup_error(self) -> None:
+        item = shopping.add_extra(self.conn, _MON, "Honey")
+        shopping.remove_extra(self.conn, item.id)
+        with self.assertRaises(LookupError):
+            shopping.update_item(self.conn, item)
+
+
 class TickingTest(_ShoppingTestCase):
     def test_toggle_flips_the_tick_and_the_counts_follow(self) -> None:
         self.plan(_MON, "2 onions", "1 leek")
@@ -430,19 +502,21 @@ class DoneShoppingTest(_ShoppingTestCase):
 
 
 class AsTextTest(_ShoppingTestCase):
-    def test_lists_what_is_still_to_buy_by_aisle(self) -> None:
+    def test_lists_what_is_still_to_buy_one_item_a_line_in_shop_order(
+        self,
+    ) -> None:
         self.plan(_MON, "400g pasta", "2 onions", "1 leek", "salt and pepper")
         shopping.add_extra(self.conn, _MON, "Kitchen roll", _a(2, "pack"))
         shopping.add_extra(self.conn, _MON, "Honey")
         got = self.generate(_MON)
         shopping.toggle(self.conn, got.aisles[0].items[0].id)  # the leek
         text = shopping.as_text(shopping.get_list(self.conn, _MON))
+        # Amount first, like typing it into a shop's search. No headings: the
+        # text is pasted into an order, where "Fruit & veg" is not an item.
         self.assertEqual(
             text,
-            "Fruit & veg\n- Onions - 2\n\n"
-            "Tins & dry goods\n- Pasta - 400 g\n\n"
-            "Herbs & spices\n- Salt and pepper\n\n"
-            "Your items\n- Kitchen roll - 2 packs\n- Honey",
+            "2 Onions\n400 g Pasta\nSalt and pepper\n"
+            "2 packs Kitchen roll\nHoney",
         )
 
     def test_an_empty_list_is_empty_text(self) -> None:

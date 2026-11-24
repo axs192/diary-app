@@ -90,6 +90,41 @@ class ParseTest(unittest.TestCase):
         self.assert_parsed("pinch of salt", "salt", 1, "pinch")
         self.assert_parsed("a handful of parsley", "parsley", 1, "handful")
 
+    def test_preparation_words_are_not_part_of_the_name(self) -> None:
+        cases = [
+            ("1 chopped onion", "onion", 1, ""),
+            ("2 finely chopped onions", "onions", 2, ""),
+            ("1 onion finely chopped", "onion", 1, ""),
+            ("1 large finely chopped onion", "onion", 1, ""),
+            ("2 peeled and diced carrots", "carrots", 2, ""),
+            ("250g grated cheddar", "cheddar", 250, "g"),
+            ("2 tbsp freshly chopped parsley", "parsley", 30, "ml"),
+            ("1 sliced red pepper", "red pepper", 1, ""),
+            ("100g melted butter", "butter", 100, "g"),
+        ]
+        for line, name, value, unit in cases:
+            with self.subTest(line=line):
+                self.assert_parsed(line, name, value, unit)
+
+    def test_products_that_are_sold_that_way_keep_the_word(self) -> None:
+        self.assert_parsed(
+            "1 tin chopped tomatoes", "chopped tomatoes", 1, "tin"
+        )
+        self.assert_parsed(
+            "1 tin crushed tomatoes", "crushed tomatoes", 1, "tin"
+        )
+        self.assert_parsed("400g minced beef", "minced beef", 400, "g")
+
+    def test_a_line_that_is_only_preparation_keeps_its_words(self) -> None:
+        self.assert_parsed("2 chopped", "chopped", 2, "")
+
+    def test_preparation_words_in_an_unreadable_line_are_left_alone(
+        self,
+    ) -> None:
+        got = ingredients.parse("Finely chopped parsley, to serve")
+        self.assertIsNone(got.amount)
+        self.assertEqual(got.name, "finely chopped parsley, to serve")
+
     def test_a_line_it_cannot_read_has_no_amount(self) -> None:
         for line in ("salt and pepper", "Juice of 1 lemon", "To serve: bread"):
             with self.subTest(line=line):

@@ -34,7 +34,7 @@
         <div class="acc-body">
           <ul class="shop-list">
             {% for item in a.rows %}
-            <li id="item-{{ item.id }}"><button type="submit" name="item" value="{{ item.id }}" class="shop-row{% if item.ticked %} shop-ticked{% endif %}" aria-pressed="{{ 'true' if item.ticked else 'false' }}"><span class="shop-name">{{ item.name }}</span>{% if item.amount %}<span class="shop-qty">{{ item.amount.format() }}</span>{% endif %}{% if item.have %}<span class="shop-have">have {{ item.have }}</span>{% endif %}</button></li>
+            <li id="item-{{ item.id }}"><button type="submit" name="item" value="{{ item.id }}" class="shop-row{% if item.ticked %} shop-ticked{% endif %}" aria-pressed="{{ 'true' if item.ticked else 'false' }}"><span class="shop-name">{{ item.name }}</span>{% if item.amount %}<span class="shop-qty">{{ item.amount.format() }}</span>{% endif %}{% if item.have %}<span class="shop-have">have {{ item.have }}</span>{% endif %}</button><a class="btn btn-small" href="/shopping/item/{{ item.id }}/edit?week={{ week }}">Edit</a></li>
             {% endfor %}
           </ul>
         </div>
@@ -83,7 +83,7 @@
       <input type="hidden" name="week" value="{{ week }}">
       <ul class="shop-list">
         {% for item in listing.extras %}
-        <li id="item-{{ item.id }}" class="shop-extra"><button type="submit" name="item" value="{{ item.id }}" class="shop-row{% if item.ticked %} shop-ticked{% endif %}" aria-pressed="{{ 'true' if item.ticked else 'false' }}"><span class="shop-name">{{ item.name }}</span>{% if item.amount %}<span class="shop-qty">{{ item.amount.format() }}</span>{% endif %}</button><button type="submit" name="item" value="{{ item.id }}" formaction="/shopping/extras/remove" class="btn btn-small" aria-label="Remove {{ item.name }}">Remove</button></li>
+        <li id="item-{{ item.id }}" class="shop-extra"><button type="submit" name="item" value="{{ item.id }}" class="shop-row{% if item.ticked %} shop-ticked{% endif %}" aria-pressed="{{ 'true' if item.ticked else 'false' }}"><span class="shop-name">{{ item.name }}</span>{% if item.amount %}<span class="shop-qty">{{ item.amount.format() }}</span>{% endif %}</button><a class="btn btn-small" href="/shopping/item/{{ item.id }}/edit?week={{ week }}">Edit</a><button type="submit" name="item" value="{{ item.id }}" formaction="/shopping/extras/remove" class="btn btn-small" aria-label="Remove {{ item.name }}">Remove</button></li>
         {% endfor %}
       </ul>
     </form>

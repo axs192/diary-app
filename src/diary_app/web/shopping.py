@@ -305,6 +305,71 @@ def submit_done(
     return _after(fragment, monday, anchor="pantry")
 
 
+def _row_or_404(
+    conn: sqlite3.Connection, item_id: int
+) -> shopping.ShoppingItem:
+    try:
+        return shopping.get_item(conn, item_id)
+    except LookupError as exc:
+        raise fastapi.HTTPException(status_code=404) from exc
+
+
+@router.get("/shopping/item/{item_id}/edit")
+def show_edit_item(
+    request: fastapi.Request,
+    conn: common.Db,
+    item_id: int,
+    week: str = "",
+) -> responses.HTMLResponse:
+    """Shows a list row's name and amount to correct."""
+    item = _row_or_404(conn, item_id)
+    monday = _monday(request, week)
+    return common.render(
+        request,
+        conn,
+        "shopping_item_form.html",
+        item=item,
+        week=monday.isoformat(),
+        back=_page_url(monday) + f"#item-{item_id}",
+        amount_text=_number_text(item.amount.value) if item.amount else "",
+        unit=(item.amount.unit if item.amount else "") or "items",
+        units=ingredients.UNIT_CHOICES,
+    )
+
+
+@router.post("/shopping/item/{item_id}", response_model=None)
+def submit_edit_item(  # noqa: PLR0913, PLR0917
+    request: fastapi.Request,
+    conn: common.Db,
+    item_id: int,
+    week: common.FormText = "",
+    name: common.FormText = "",
+    amount: common.FormText = "",
+    unit: common.FormText = "items",
+) -> responses.Response:
+    """Saves a corrected name and amount, then returns to that row."""
+    item = _row_or_404(conn, item_id)
+    monday = _monday(request, week)
+    try:
+        wanted = (
+            ingredients.parse_amount(amount, unit) if amount.strip() else None
+        )
+        saved = shopping.update_item(
+            conn, dataclasses.replace(item, name=name, amount=wanted)
+        )
+    except ValueError as exc:
+        return common.rejected(
+            request,
+            conn,
+            str(exc),
+            back=f"/shopping/item/{item_id}/edit?week={monday.isoformat()}",
+        )
+    open_id = (
+        _section_id("aisle", saved.aisle) if saved.source == "meal" else ""
+    )
+    return _after(None, monday, open_id=open_id, anchor=f"item-{saved.id}")
+
+
 # --- the pantry -------------------------------------------------------------
 
 

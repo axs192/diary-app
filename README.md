@@ -136,7 +136,8 @@ name and a quantity and unit ("Carrots 750 g", "Chopped tomatoes 3 tins").
 Ticking only crosses an item off; **Done shopping** then adds the ticked items
 to the pantry (to a matching item in the same unit, or as a new item on a
 shelf that suits its aisle) and clears them. **Copy for online order** shows
-the list as plain text in a box: tap it to select everything, then press and
+the list as plain text in a box, one item a line with the amount first
+("2 Onions", "400 g Pasta") and no aisle headings: tap it to select everything, then press and
 hold to copy (iOS 9 cannot copy from script).
 
 **Cooked it.** Each planned dinner on Meals has a **Cooked it** button that

@@ -116,6 +116,18 @@ class AccessTest(_MealsTestCase):
                     (303, "/login"),
                 )
 
+    def test_the_item_editor_needs_the_login(self) -> None:
+        for method, url in (
+            ("get", "/shopping/item/1/edit"),
+            ("post", "/shopping/item/1"),
+        ):
+            with self.subTest(url=url):
+                response = getattr(self.client, method)(url)
+                self.assertEqual(
+                    (response.status_code, response.headers["location"]),
+                    (303, "/login"),
+                )
+
 
 class GenerateFormTest(_ShoppingWebTestCase):
     def day_boxes(self, html: str) -> dict[str, tuple[bool, bool]]:
@@ -648,6 +660,132 @@ class EditPantryTest(_ShoppingWebTestCase):
         )
 
 
+class EditShoppingItemTest(_ShoppingWebTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.meal(_TUE, "2 onions", "1 leek")
+        self.generate(_TUE)
+        self.client.post(
+            "/shopping/extras",
+            data={
+                "week": _WEEK,
+                "text": "Honey",
+                "amount": "",
+                "unit": "items",
+            },
+        )
+        listing = self.listing()
+        self.onions = next(
+            i for a in listing.aisles for i in a.items if i.name == "Onions"
+        )
+        self.honey = listing.extras[0]
+
+    def url(self, item: shopping.ShoppingItem) -> str:
+        return f"/shopping/item/{item.id}/edit?week={_WEEK}"
+
+    def save(
+        self, item: shopping.ShoppingItem, **fields: str
+    ) -> httpx.Response:
+        data = {
+            "week": _WEEK,
+            "name": item.name,
+            "amount": "",
+            "unit": "items",
+            **fields,
+        }
+        response: httpx.Response = self.client.post(
+            f"/shopping/item/{item.id}", data=data
+        )
+        return response
+
+    def test_every_row_on_the_list_has_an_edit_link(self) -> None:
+        html = self.get_page()
+        self.assertIn(f'href="{self.url(self.onions)}"', html)
+        self.assertIn(f'href="{self.url(self.honey)}"', html)
+
+    def test_covered_rows_are_not_editable(self) -> None:
+        self.client.post(
+            "/pantry",
+            data={
+                "week": _WEEK,
+                "name": "Leek",
+                "amount": "5",
+                "unit": "items",
+            },
+        )
+        self.generate(_TUE)
+        covered = self.listing().covered[0]
+        self.assertNotIn(f"/shopping/item/{covered.id}/edit", self.get_page())
+
+    def test_the_form_is_filled_in(self) -> None:
+        html = self.get_page(self.url(self.onions))
+        self.assertIn('value="Onions"', html)
+        self.assertIn('value="2"', html)
+        self.assertRegex(html, r"<option[^>]*selected[^>]*>items</option>")
+
+    def test_saving_changes_a_row_and_returns_to_its_aisle(self) -> None:
+        response = self.save(
+            self.onions, name="Red onions", amount="3", unit="items"
+        )
+        self.assertEqual(
+            (response.status_code, response.headers["location"]),
+            (
+                303,
+                f"{_PAGE}&open=aisle-fruit-veg#item-{self.onions.id}",
+            ),
+        )
+        got = shopping.get_item(self.conn(), self.onions.id)
+        self.assertEqual((got.name, got.amount), ("Red onions", _a(3)))
+        self.assertIn("Red onions", self.get_page())
+
+    def test_one_of_your_own_items_returns_to_the_page(self) -> None:
+        response = self.save(
+            self.honey, name="Runny honey", amount="2", unit="jar"
+        )
+        self.assertEqual(
+            response.headers["location"], f"{_PAGE}#item-{self.honey.id}"
+        )
+        got = shopping.get_item(self.conn(), self.honey.id)
+        self.assertEqual((got.name, got.amount), ("Runny honey", _a(2, "jar")))
+
+    def test_the_amount_may_be_left_blank_and_kilos_become_grams(self) -> None:
+        self.save(self.onions, amount="")
+        self.assertIsNone(shopping.get_item(self.conn(), self.onions.id).amount)
+        self.save(self.onions, amount="1.5", unit="kg")
+        self.assertEqual(
+            shopping.get_item(self.conn(), self.onions.id).amount, _a(1500, "g")
+        )
+
+    def test_bad_values_show_a_message_and_change_nothing(self) -> None:
+        cases = {
+            "Say what to add": {"name": "  "},
+            "Enter an amount as a number": {"amount": "lots"},
+            "Pick one of the units": {"amount": "2", "unit": "furlongs"},
+        }
+        for message, fields in cases.items():
+            with self.subTest(message=message):
+                response = self.save(self.onions, **fields)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn(message, response.text)
+        got = shopping.get_item(self.conn(), self.onions.id)
+        self.assertEqual((got.name, got.amount), ("Onions", _a(2)))
+
+    def test_an_unknown_row_is_a_404(self) -> None:
+        self.assertEqual(
+            self.client.get("/shopping/item/999/edit").status_code, 404
+        )
+        response = self.client.post("/shopping/item/999", data={"name": "x"})
+        self.assertEqual(response.status_code, 404)
+
+    def test_the_editor_is_a_plain_page_for_the_ipad(self) -> None:
+        html = self.get_page(self.url(self.onions))
+        support.assert_only_app_script(self, html, "item editor")
+        for banned in ("display: grid", "gap:", "onclick"):
+            self.assertNotIn(banned, html.lower())
+        action = f'action="/shopping/item/{self.onions.id}"'
+        self.assertIn('method="post" ' + action, html)
+
+
 class TextPageTest(_ShoppingWebTestCase):
     def test_the_list_is_plain_text_ready_to_copy(self) -> None:
         self.meal(_TUE, "2 onions", "400g pasta")
@@ -657,8 +795,7 @@ class TextPageTest(_ShoppingWebTestCase):
         assert found
         self.assertEqual(
             found.group(1).strip(),
-            "Fruit &amp; veg\n- Onions - 2\n\n"
-            "Tins &amp; dry goods\n- Pasta - 400 g",
+            "2 Onions\n400 g Pasta",
         )
         self.assertIn("readonly", html)
         self.assertIn("data-select-all", html)

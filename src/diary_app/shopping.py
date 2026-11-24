@@ -342,6 +342,75 @@ def toggle(conn: sqlite3.Connection, item_id: int) -> None:
         raise LookupError(msg)
 
 
+def _clean_item_name(name: str) -> str:
+    clean = " ".join(name.split())
+    if not clean:
+        msg = "Say what to add."
+        raise InvalidItemError(msg)
+    if len(clean) > _MAX_NAME_LENGTH:
+        msg = f"Keep the name under {_MAX_NAME_LENGTH} characters."
+        raise InvalidItemError(msg)
+    return clean
+
+
+def get_item(conn: sqlite3.Connection, item_id: int) -> ShoppingItem:
+    """Finds one row of a list.
+
+    Args:
+        conn: Open database connection.
+        item_id: The row's id.
+
+    Returns:
+        The row.
+
+    Raises:
+        LookupError: If there is no such row.
+    """
+    row = conn.execute(
+        "SELECT * FROM shopping_item WHERE id = ?", (item_id,)
+    ).fetchone()
+    if row is None:
+        msg = f"No shopping item {item_id}"
+        raise LookupError(msg)
+    return _from_row(row)
+
+
+def update_item(conn: sqlite3.Connection, item: ShoppingItem) -> ShoppingItem:
+    """Corrects a row's name and amount, whether made from a meal or added.
+
+    Typical use: ``update_item(conn, dataclasses.replace(row, name="Red
+    onions"))``. Only the name and amount are taken from ``item``; whether
+    it is ticked stays as it is. The aisle follows the new name. Rows made
+    from a meal are replaced if the list is generated again.
+
+    Args:
+        conn: Open database connection.
+        item: The row as it should now be; ``item.id`` says which one. A
+            None amount means no amount.
+
+    Returns:
+        The changed row.
+
+    Raises:
+        InvalidItemError: If the name is blank or too long; nothing changes.
+        LookupError: If there is no row with that id.
+    """
+    clean = _clean_item_name(item.name)
+    get_item(conn, item.id)
+    conn.execute(
+        "UPDATE shopping_item SET name = ?, aisle = ?, unit = ?, amount = ?"
+        " WHERE id = ?",
+        (
+            clean,
+            ingredients.aisle(clean),
+            item.amount.unit if item.amount else "",
+            str(item.amount.value) if item.amount else None,
+            item.id,
+        ),
+    )
+    return get_item(conn, item.id)
+
+
 def add_extra(
     conn: sqlite3.Connection,
     monday: datetime.date,
@@ -362,13 +431,7 @@ def add_extra(
     Raises:
         InvalidItemError: If the name is blank or too long.
     """
-    clean = " ".join(name.split())
-    if not clean:
-        msg = "Say what to add."
-        raise InvalidItemError(msg)
-    if len(clean) > _MAX_NAME_LENGTH:
-        msg = f"Keep the name under {_MAX_NAME_LENGTH} characters."
-        raise InvalidItemError(msg)
+    clean = _clean_item_name(name)
     cursor = conn.execute(
         "INSERT INTO shopping_item (week, source, name, aisle, unit, amount)"
         " VALUES (?, 'extra', ?, ?, ?, ?)",
@@ -380,10 +443,7 @@ def add_extra(
             str(amount.value) if amount else None,
         ),
     )
-    row = conn.execute(
-        "SELECT * FROM shopping_item WHERE id = ?", (cursor.lastrowid,)
-    ).fetchone()
-    return _from_row(row)
+    return get_item(conn, int(cursor.lastrowid or 0))
 
 
 def remove_extra(conn: sqlite3.Connection, item_id: int) -> None:
@@ -455,26 +515,20 @@ def done_shopping(conn: sqlite3.Connection, monday: datetime.date) -> int:
 
 
 def as_text(listing: ShoppingList) -> str:
-    """Writes the list out as plain text, for copying into an online order.
+    """Writes the list out as plain text, for pasting into an online order.
 
     Args:
         listing: A list from ``get_list`` or ``generate``.
 
     Returns:
-        What is still to buy (not ticked, not covered), by aisle, then your
-        own items. Empty when there is nothing to buy.
+        What is still to buy (not ticked, not covered), one item a line with
+        the amount first ("2 Onions", "400 g Pasta", "Honey"): meal items in
+        shop order, then your own. No aisle headings, since the text is
+        pasted somewhere that would read them as items. Empty when there is
+        nothing to buy.
     """
-
-    def line(item: ShoppingItem) -> str:
-        amount = f" - {item.amount.format()}" if item.amount else ""
-        return f"- {item.name}{amount}"
-
-    sections = [
-        "\n".join([aisle.name, *(line(i) for i in aisle.items if not i.ticked)])
-        for aisle in listing.aisles
-        if any(not i.ticked for i in aisle.items)
-    ]
-    extras = [i for i in listing.extras if not i.ticked]
-    if extras:
-        sections.append("\n".join(["Your items", *(line(i) for i in extras)]))
-    return "\n\n".join(sections)
+    wanted = [i for a in listing.aisles for i in a.items if not i.ticked]
+    wanted += [i for i in listing.extras if not i.ticked]
+    return "\n".join(
+        f"{i.amount.format()} {i.name}" if i.amount else i.name for i in wanted
+    )

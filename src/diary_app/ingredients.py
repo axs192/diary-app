@@ -314,14 +314,68 @@ def _number(text: str) -> Fraction:
     return sum((Fraction(part) for part in text.split()), Fraction(0))
 
 
+# What is done to an ingredient is not what it is: "1 chopped onion" is an
+# onion on the shopping list. Chopped or crushed tomatoes and minced meat are
+# products you buy that way, so those keep the word.
+_PREPARATION = frozenset(
+    {
+        "chopped", "diced", "sliced", "minced", "grated", "crushed", "peeled",
+        "shredded", "trimmed", "halved", "quartered", "cubed", "mashed",
+        "melted", "beaten", "drained", "rinsed", "washed", "deseeded",
+        "shelled",
+    }
+)  # fmt: skip
+_MANNER = frozenset(
+    {
+        "finely",
+        "roughly",
+        "thinly",
+        "freshly",
+        "coarsely",
+        "lightly",
+        "thickly",
+        "very",
+    }
+)
+_SOLD_THAT_WAY = {
+    "chopped": frozenset({"tomato", "tomatoes"}),
+    "crushed": frozenset({"tomato", "tomatoes"}),
+    "minced": frozenset(
+        {"beef", "lamb", "pork", "chicken", "turkey", "meat", "mince"}
+    ),
+}
+
+
+def _without_preparation(words: list[str]) -> list[str]:
+    """Drops "finely chopped", "peeled and diced" and the like."""
+    drop = {
+        i
+        for i, word in enumerate(words)
+        if word in _PREPARATION
+        and not (
+            i + 1 < len(words)
+            and words[i + 1] in _SOLD_THAT_WAY.get(word, frozenset())
+        )
+    }
+    for i in reversed(range(len(words))):  # right to left, so chains go
+        if words[i] in _MANNER and i + 1 in drop:
+            drop.add(i)
+    for i, word in enumerate(words):
+        if word == "and" and i - 1 in drop and i + 1 in drop:
+            drop.add(i)
+    kept = [w for i, w in enumerate(words) if i not in drop]
+    return kept or words  # a line of nothing but preparation keeps its words
+
+
 def _clean_name(name: str) -> str:
-    words = " ".join(name.lower().split()).strip(" .:;")
+    words = _without_preparation(name.lower().split())
+    text = " ".join(words).strip(" .:;")
     while True:
-        first, _, rest = words.partition(" ")
+        first, _, rest = text.partition(" ")
         if first in _DESCRIPTORS and rest:
-            words = rest
+            text = rest
         else:
-            return words
+            return text
 
 
 def parse(line: str) -> Ingredient:
