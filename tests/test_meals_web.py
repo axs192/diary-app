@@ -14,6 +14,7 @@ from fastapi import testclient
 
 from diary_app import app as diary_app
 from diary_app import config
+from tests import support
 
 _PIN = "4321"
 _SESSION_SECRET = "meals-test-session-secret-0123456789"  # noqa: S105
@@ -452,9 +453,11 @@ class SettingsLayoutTest(_MealsTestCase):
         )
         self.assertEqual(person.headers["location"], "/settings?section=people")
 
-    def test_it_needs_no_javascript(self) -> None:
+    def test_it_needs_no_javascript_of_its_own(self) -> None:
         self.log_in()
-        self.assertNotIn("<script", self.client.get("/settings").text)
+        support.assert_only_app_script(
+            self, self.client.get("/settings").text, "/settings"
+        )
 
     def test_the_stylesheet_turns_the_chevron_and_hides_the_marker(
         self,
@@ -848,7 +851,7 @@ class IconAndKioskTest(_MealsTestCase):
 class Ios9SafetyTest(_MealsTestCase):
     """The meals pages obey the same iOS 9 rules as the rest of the app."""
 
-    def test_no_javascript_grid_or_flex_gap(self) -> None:
+    def test_only_the_app_script_no_grid_or_flex_gap(self) -> None:
         self.log_in()
         recipe_id = self.add_recipe(tags=["Quick"])
         self.plan(_DAYS[0], recipe_id)
@@ -864,7 +867,7 @@ class Ios9SafetyTest(_MealsTestCase):
         ]
         for page in pages:
             text = self.client.get(page).text
-            self.assertNotIn("<script", text, page)
+            support.assert_only_app_script(self, text, page)
             self.assertNotRegex(text, r"display:\s*(inline-)?grid", page)
             self.assertNotIn("grid-template", text, page)
             self.assertNotRegex(text, r"(?<![\w-])(row-|column-)?gap\s*:", page)

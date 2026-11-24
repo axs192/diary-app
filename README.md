@@ -1,8 +1,9 @@
 # diary-app
 
-Family diary backend: weekly meal plans, shopping lists and per-person
-calendars, shown on an iPad. This repo is currently a **spike**: a
-hello-world FastAPI app used to prove the deployment pipeline.
+Family diary: weekly meal plans, a recipe library (with import from a few
+allowed sites) and, later, shopping lists and per-person calendars. It is a
+server-rendered FastAPI app behind a household PIN, built for a kitchen iPad
+and also usable from phones. See [Installing on the iPad](#installing-on-the-ipad).
 
 ## Licence
 
@@ -78,6 +79,21 @@ sudo /opt/diary-app/deploy/deploy.sh
 This fetches `origin/main`, hard-resets the checkout, runs `uv sync --frozen
 --no-dev`, restarts the service and polls `/health`.
 
+### Testing an unmerged branch on the LXC
+
+`deploy.sh` always resets to `origin/main`. To try a branch on the iPad, run
+git as the service user (the checkout belongs to `diary`; running git as
+root fails with "dubious ownership"), then restart:
+
+```bash
+runuser -u diary -- git -C /opt/diary-app fetch origin <branch>
+runuser -u diary -- git -C /opt/diary-app reset --hard origin/<branch>
+systemctl restart diary-app
+```
+
+Run `sudo /opt/diary-app/deploy/deploy.sh` afterwards to return to `main`.
+Force-close the Home Screen app on the iPad so it does not show a cached page.
+
 ### Credentials
 
 Secrets are [systemd credentials](docs/systemd-credentials.md): encrypted
@@ -91,3 +107,46 @@ returning the value. Non-secret settings stay in
 the step-by-step guide in [docs/systemd-credentials.md](docs/systemd-credentials.md).
 
 Local development still uses a git-ignored `.env` file (dummy values only).
+
+## Installing on the iPad
+
+The main display is a 1st-generation iPad mini (iOS 9.3.5, Mobile Safari 9)
+left on in the kitchen.
+
+1. Open the app's address in **Safari** and log in with the household PIN.
+2. Tap Share, then **Add to Home Screen**, and open it from the new icon. It
+   runs full screen with no address bar. Log in again inside this Home Screen
+   app: iOS 9 can keep a separate cookie jar from Safari.
+3. Settings > Display & Brightness > **Auto-Lock: Never**, and keep the iPad
+   on a charger.
+4. Settings > General > Accessibility > **Guided Access**: turn it on, set a
+   passcode, then triple-click the Home button inside the app to start it.
+
+**Why the app ships one script.** In an iOS 9 Home Screen app, tapping a plain
+link opens Safari, and Guided Access blocks leaving the app, so taps appeared
+dead. `src/diary_app/web/static/app.js` (loaded on every page) intercepts
+clicks on same-origin links and navigates in place; external links are left
+alone. Forms are plain `POST` then `303` redirects, which stay inside the app.
+
+## Front-end rules (iOS 9 / Safari 9)
+
+There is no build step or bundler, so what is written is what the iPad runs.
+Everything the iPad loads must work in Mobile Safari 9 and still work in
+current phone browsers.
+
+- **JavaScript:** the only script is hand-written ES5 in `static/app.js`; no
+  inline scripts, no other files. Use `var` and `function`. No arrow
+  functions, classes, template literals, `let`/`const`, `async`/`await`,
+  default parameters, spread, destructuring or `for...of`.
+- **APIs:** no `fetch` (use `XMLHttpRequest`), `Element.closest`,
+  `Array.includes`, `String.includes`/`startsWith`, `NodeList.forEach`,
+  `Object.entries`/`values` or `Promise.prototype.finally`. Prefer plain
+  callbacks over `Promise`. Add a small targeted polyfill only if unavoidable.
+- **CSS:** no grid, no flex `gap`, no custom properties (`var(--x)`), no
+  unprefixed `position: sticky`. Flexbox with margins is fine. Fonts are TTF
+  (no WOFF2).
+- **Pages:** server-rendered; every action is a plain form `POST` that answers
+  with a `303` redirect. Prefer native elements (`<details>`) to JavaScript.
+- **Guard rails:** `tests/test_app_js.py` fails if `app.js` uses modern syntax
+  or APIs, and the `Ios9SafetyTest` classes fail on extra scripts, grid or
+  flex gap. Nothing here counts as working until it is tried on the iPad.
