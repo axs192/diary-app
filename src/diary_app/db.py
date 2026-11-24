@@ -6,10 +6,12 @@ highest applied number is stored in SQLite's ``user_version`` pragma. To
 change the schema, add a new file; never edit one that has shipped.
 """
 
+import contextlib
 import logging
 import pathlib
 import sqlite3
 import time
+from collections.abc import Iterator
 
 _logger = logging.getLogger(__name__)
 
@@ -165,3 +167,33 @@ def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
         " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (key, value),
     )
+
+
+@contextlib.contextmanager
+def transaction(conn: sqlite3.Connection) -> Iterator[None]:
+    """Makes the changes inside the ``with`` block all happen or none.
+
+    The connection is in autocommit mode, so a function that changes several
+    rows wraps them in this. It takes the write lock at once (waiting for
+    other writers), so a read-then-write inside cannot be overtaken.
+
+    If a transaction is already open (a caller wrapped this call in its own),
+    the block simply joins it: the outermost block commits or rolls back.
+
+    Args:
+        conn: Open database connection.
+
+    Yields:
+        Nothing; commits when the block ends, and rolls back, re-raising, if
+        it raises.
+    """
+    if conn.in_transaction:
+        yield
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    conn.execute("COMMIT")

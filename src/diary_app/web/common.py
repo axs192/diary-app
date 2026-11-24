@@ -23,6 +23,7 @@ TEMPLATES.env.globals["tag_style"] = theme.tag_style
 NAV = (
     ("Today", "/home"),
     ("Meals", "/meals"),
+    ("Shopping", "/shopping"),
     ("Settings", "/settings"),
 )
 APP_COLOUR_KEY = "app_colour"

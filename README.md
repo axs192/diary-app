@@ -1,7 +1,8 @@
 # diary-app
 
 Family diary: weekly meal plans, a recipe library (with import from a few
-allowed sites) and, later, shopping lists and per-person calendars. It is a
+allowed sites), a pantry and a shopping list generated from the plan and, later,
+per-person calendars. It is a
 server-rendered FastAPI app behind a household PIN, built for a kitchen iPad
 and also usable from phones. See [Installing on the iPad](#installing-on-the-ipad).
 
@@ -108,6 +109,56 @@ the step-by-step guide in [docs/systemd-credentials.md](docs/systemd-credentials
 
 Local development still uses a git-ignored `.env` file (dummy values only).
 
+## Shopping and the pantry
+
+**Pantry.** Each item holds a real amount (4 tins, 3 onions, 500 g pasta, 1 jar
+of cumin), a shelf (Fridge, Cupboard, Freezer, Spices, Baking) and an optional
+use-by date. Items due within three days appear in a **Use soon** box with
+recipes that use them. Nothing is added to the shopping list automatically
+when stock runs low; each pantry row has an **Add to list** button instead.
+
+**Generating the list.** On the Shopping page, tick the days to shop for (days
+from today with a dinner start ticked) and press **Generate list**. It adds up
+what those dinners need and compares that with the pantry:
+
+- enough in the pantry: the item is listed under **Already in the pantry**,
+  closed, so a wrong match can be noticed;
+- some in the pantry: only the shortfall is listed ("300 g, have 100 g");
+- the pantry holds it in a different unit (a jar where a recipe says a tin):
+  it counts as covered, and the row says what is held;
+- none in the pantry: the whole amount is listed.
+
+The list is a snapshot of that moment: changing a meal later does not change
+it until you generate again. Generating again replaces the generated rows,
+keeps your own items, and keeps ticks on anything still needed in the same
+unit. Rows are grouped by aisle in collapsible sections, each showing only a
+name and a quantity and unit ("Carrots 750 g", "Chopped tomatoes 3 tins").
+Ticking only crosses an item off; **Done shopping** then adds the ticked items
+to the pantry (to a matching item in the same unit, or as a new item on a
+shelf that suits its aisle) and clears them. **Copy for online order** shows
+the list as plain text in a box: tap it to select everything, then press and
+hold to copy (iOS 9 cannot copy from script).
+
+**Cooked it.** Each planned dinner on Meals has a **Cooked it** button that
+takes the ingredients out of the pantry (never below zero; only items in the
+same unit are touched) and records exactly what it took, so **Undo** puts back
+the same amounts. A cooked day is left out of generated lists.
+
+**Units.** Recipes mix units, so ingredient lines are converted to metric when
+read (`ingredients.py`): 1 oz = 28.35 g, 1 lb = 453.6 g, 1 UK fl oz = 28.41 ml,
+1 UK pint = 568 ml, 1 cup = 250 ml, 1 tbsp = 15 ml, 1 tsp = 5 ml; kilograms and
+litres are shown from 1000. Tins, jars, packs, bags, bottles, pots, bunches and
+the like are counted, not weighed ("400g can tomatoes" is 1 tin).
+
+**Limits to know about.** The parser is deliberately simple. A line it cannot
+read ("salt and pepper", "juice of 1 lemon") is listed as written, with no
+amount, and is never guessed at. Names are matched by whole words, so "Milk" in
+the pantry also covers "coconut milk" (and "Pasta" covers "pasta sauce"); an
+ingredient and the pantry must use the same unit to be compared, so there is
+no conversion between a tin and grams. The same item in two units stays two
+rows. Aisles come from a small keyword table, and anything it does not know
+falls under "Other".
+
 ## Installing on the iPad
 
 The main display is a 1st-generation iPad mini (iOS 9.3.5, Mobile Safari 9)
@@ -155,6 +206,19 @@ alone. Forms are plain `POST` then `303` redirects, which stay inside the app.
   black backdrop it flashed on the iPad), not the cost of drawing the list.
   If a large library still feels slow, paginate the list.
 
+- **In-place forms.** A form marked `data-swap="<id>"` (the Shopping page's)
+  is posted in the background with `_fragment=1`, and the server answers with a
+  `303` to a fragment of the page, which replaces that element. The page keeps
+  its scroll position and does not flash. Without the script, or if the request
+  fails, the same form is an ordinary post and redirect (a failed swap reloads
+  the page rather than resubmitting, in case the post already reached the
+  server).
+- **Open sections stay open.** A swap puts back which `<details id>` sections
+  were open, so ticking an item does not close the aisle being worked through.
+  (A full page load starts with them closed, apart from one named in `?open=`.)
+- **Select-all boxes.** A box marked `data-select-all` selects its text when
+  tapped, ready for press-and-hold Copy.
+
 Not yet done: saving UI state in `localStorage`. There is no client-side state
 worth saving yet (every view is its own URL); add it when a feature needs it.
 
@@ -180,7 +244,9 @@ current phone browsers.
   browser's backdrop, and `app.css` asks modern browsers to cross-fade
   (`@view-transition`; iOS 9 ignores it). Keep that colour in one place.
 - **Pages:** server-rendered; every action is a plain form `POST` that answers
-  with a `303` redirect. Prefer native elements (`<details>`) to JavaScript.
+  with a `303` redirect, and must still work without the script (the script
+  only upgrades some forms to swap in place, see Self-healing above). Prefer
+  native elements (`<details>`) to JavaScript.
 - **Guard rails:** `tests/test_app_js.py` fails if `app.js` uses modern syntax
   or APIs, and the `Ios9SafetyTest` classes fail on extra scripts, grid or
   flex gap. `tests/test_app_js_behaviour.py` runs the real `app.js` under Node

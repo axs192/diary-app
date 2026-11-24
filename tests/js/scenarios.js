@@ -199,4 +199,110 @@ const currentTab = (tabs) => Object.keys(tabs).filter(
   out.tabsPageOtherLink = { prevented: e.defaultPrevented, to: b.state.navigations };
 }
 
+// --- in-place forms (data-swap) ------------------------------------------------
+const busy = (el) => el.className.indexOf('swap-busy') !== -1;
+const TICK = { name: 'key', value: 'meal-onion' };
+const REMOVE = { name: 'extra_id', value: '3', formaction: '/shopping/extras/remove' };
+{
+  const b = makeBrowser({ now: at(10) });
+  const { main, buttons } = b.swapForm({ 'data-swap': 'shopping-main' }, [TICK]);
+  b.state.responses['/shopping/tick'] = { body: '<p>NEW</p>' };
+  const e = b.click(buttons[0]);
+  const during = { busy: busy(main), html: main.innerHTML };
+  b.advance(1);
+  out.formSwap = {
+    prevented: e.defaultPrevented, posts: b.state.posts, during,
+    html: main.innerHTML, busyAfter: busy(main),
+    navigations: b.state.navigations, reloads: b.state.reloads,
+  };
+}
+{
+  const b = makeBrowser({ now: at(10) });
+  const { main, buttons } = b.swapForm({ 'data-swap': 'shopping-main' }, [TICK]);
+  const span = new b.El('span');
+  buttons[0].appendChild(span);
+  b.state.responses['/shopping/tick'] = { body: '<p>NEW</p>' };
+  b.click(span);
+  b.advance(1);
+  out.formSwapChild = { html: main.innerHTML, posts: b.state.posts.length };
+}
+{
+  const b = makeBrowser({ now: at(10) });
+  const { main, buttons } = b.swapForm({ 'data-swap': 'shopping-main' }, [TICK, REMOVE]);
+  b.state.responses['/shopping/extras/remove'] = { body: '<p>REMOVED</p>' };
+  b.click(buttons[1]);
+  b.advance(1);
+  out.formSwapFormaction = { posts: b.state.posts, html: main.innerHTML };
+}
+['down', 'timeout'].concat([500]).forEach((fail) => {
+  const b = makeBrowser({ now: at(10) });
+  const { main, buttons } = b.swapForm({ 'data-swap': 'shopping-main' }, [TICK]);
+  b.state.responses['/shopping/tick'] = typeof fail === 'number'
+    ? { status: fail, body: 'oops' } : { mode: fail };
+  b.click(buttons[0]);
+  b.advance(1);
+  out['formSwapFails_' + fail] = {
+    reloads: b.state.reloads, navigations: b.state.navigations,
+    html: main.innerHTML, busyAfter: busy(main),
+  };
+});
+{
+  const b = makeBrowser({ now: at(10) });
+  const { main, buttons } = b.swapForm({ 'data-swap': 'shopping-main' },
+    [TICK, { name: 'key', value: 'meal-leek' }]);
+  b.state.responses['/shopping/tick'] = { body: '<p>SLOW</p>', delay: 2000 };
+  b.click(buttons[0]);
+  b.state.responses['/shopping/tick'] = { body: '<p>FAST</p>', delay: 100 };
+  b.click(buttons[1]);
+  b.advance(3000);
+  out.formSwapStale = { html: main.innerHTML, busyAfter: busy(main) };
+}
+{
+  const b = makeBrowser({ now: at(10) });
+  const swapped = b.swapForm({ 'data-swap': 'shopping-main' },
+    [{ name: 'x', value: '1', type: 'button' }]);
+  const plain = b.swapForm({}, [TICK]);
+  const missing = b.swapForm({ 'data-swap': 'no-such-id' }, [TICK]);
+  out.formLeftAlone = {
+    typeButton: b.click(swapped.buttons[0]).defaultPrevented,
+    noSwap: b.click(plain.buttons[0]).defaultPrevented,
+    missingTarget: b.click(missing.buttons[0]).defaultPrevented,
+    posts: b.state.posts.length,
+  };
+}
+
+// --- open sections survive a swap -------------------------------------------------
+{
+  const b = makeBrowser({ now: at(10) });
+  const { main, buttons } = b.swapForm({ 'data-swap': 'shopping-main' }, [TICK],
+    '<details id="meat" open></details><details id="dairy"></details>' +
+    '<details id="fruit"></details><details></details>');
+  const [meat, dairy] = main.getElementsByTagName('details');
+  meat.open = false;   // the user closed Meat, then opened Dairy
+  dairy.open = true;
+  b.state.responses['/shopping/tick'] = {
+    body: '<details id="meat" open></details><details id="dairy"></details>' +
+      '<details id="fruit"></details><details id="fresh" open></details><details></details>',
+  };
+  b.click(buttons[0]);
+  b.advance(1);
+  out.openSections = main.getElementsByTagName('details').map(
+    (d) => [d.getAttribute('id'), d.open]);
+}
+
+// --- select-all text boxes -------------------------------------------------------
+{
+  const b = makeBrowser({ now: at(10) });
+  const box = new b.El('textarea');
+  box.setAttribute('data-select-all', '');
+  box.value = 'Onions\nLeeks';
+  box.setSelectionRange = (from, to) => { box.selected = [from, to]; };
+  const other = new b.El('textarea');
+  other.value = 'x';
+  other.setSelectionRange = () => { other.selected = true; };
+  b.fire('focus', { target: box });
+  b.fire('focus', { target: other });
+  out.selectAll = { box: box.selected || null, other: other.selected || null };
+}
+
 process.stdout.write(JSON.stringify(out));

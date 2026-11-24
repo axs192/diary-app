@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Diary · Shopping{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">Shopping</div>
+  <h1 class="title">Week of {{ monday.day }} {{ monday.strftime("%B") }}</h1>
+  <div class="row week-nav">
+    <a class="btn" href="{{ prev_week }}">&larr; Previous</a>
+    <a class="btn" href="/shopping">This week</a>
+    <a class="btn" href="{{ next_week }}">Next &rarr;</a>
+    <a class="btn" href="/shopping/text?week={{ week }}">Copy for online order</a>
+  </div>
+</div>
+
+<div id="shopping-main">
+{% include "_shopping_main.html" %}
+</div>
+{% endblock %}

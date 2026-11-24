@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Diary · {{ item.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">Pantry</div>
+  <h1 class="title">{{ item.name }}</h1>
+</div>
+<form class="card" method="post" action="/pantry/{{ item.id }}">
+  <input type="hidden" name="week" value="{{ week }}">
+  <label class="label" for="name">Name</label>
+  <input class="input" id="name" name="name" type="text" maxlength="60" value="{{ item.name }}">
+  <div class="inline-fields">
+    <div class="field-grow">
+      <label class="label" for="amount">Amount</label>
+      <input class="input" id="amount" name="amount" type="number" inputmode="decimal" min="0" step="any" value="{{ amount_text }}">
+    </div>
+    <div class="field-grow">
+      <label class="label" for="unit">Unit</label>
+      <select class="input" id="unit" name="unit">{% for u in units %}<option value="{{ u }}"{% if u == unit %} selected{% endif %}>{{ u }}</option>{% endfor %}</select>
+    </div>
+  </div>
+  <div class="inline-fields">
+    <div class="field-grow">
+      <label class="label" for="shelf">Kept in</label>
+      <select class="input" id="shelf" name="shelf">{% for s in shelves %}<option value="{{ s }}"{% if s == item.shelf %} selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+    </div>
+    <div class="field-grow">
+      <label class="label" for="expires_on">Use by (optional)</label>
+      <input class="input" id="expires_on" name="expires_on" type="date" value="{{ expires_on }}">
+    </div>
+  </div>
+  <div class="row">
+    <button class="btn btn-primary accent-bg" type="submit">Save</button>
+    <a class="btn" href="{{ back }}">Cancel</a>
+  </div>
+</form>
+<form method="post" action="/pantry/{{ item.id }}/delete">
+  <input type="hidden" name="week" value="{{ week }}">
+  <button class="btn btn-danger" type="submit">Remove from the pantry</button>
+</form>
+{% endblock %}

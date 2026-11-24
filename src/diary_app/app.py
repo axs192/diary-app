@@ -1,5 +1,6 @@
 """FastAPI application factory for the diary backend."""
 
+import datetime
 import logging
 import pathlib
 from collections.abc import Callable
@@ -11,7 +12,7 @@ import httpx
 from starlette.middleware import sessions
 
 from diary_app import config, planner, security
-from diary_app.web import meals, pages, recipe_pages
+from diary_app.web import meals, pages, recipe_pages, shopping
 
 _logger = logging.getLogger(__name__)
 _STATIC = pathlib.Path(__file__).parent / "web" / "static"
@@ -46,6 +47,7 @@ def create_app(
     *,
     http_client: httpx.Client | None = None,
     resolve: Callable[[str], list[str]] | None = None,
+    today: Callable[[], datetime.date] = datetime.date.today,
 ) -> fastapi.FastAPI:
     """Builds the FastAPI application.
 
@@ -58,6 +60,8 @@ def create_app(
             transport; when omitted, a real client is made on first use.
         resolve: Turns a host name into IP addresses for the import
             safety check. Defaults to the system resolver.
+        today: Returns today's date, for the shopping pages. Tests pass a
+            fixed date; the default is the real one.
 
     Returns:
         A configured FastAPI application.
@@ -78,6 +82,7 @@ def create_app(
     app.state.error_banner = settings.error_banner
     app.state.http_client = http_client
     app.state.resolve = resolve
+    app.state.today = today
     # The one place to swap in a different (e.g. AI-backed) suggester.
     app.state.suggester = planner.RuleBasedSuggester()
     app.state.pin_checker = security.PinChecker(
@@ -109,6 +114,7 @@ def create_app(
     app.include_router(pages.router)
     app.include_router(meals.router)
     app.include_router(recipe_pages.router)
+    app.include_router(shopping.router)
 
     @app.get("/")
     def read_root() -> dict[str, str]:

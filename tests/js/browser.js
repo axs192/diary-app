@@ -26,7 +26,33 @@ class El {
   }
   set textContent(v) { this.ownText = String(v); this.children = []; }
   get innerHTML() { return this.html || ''; }
-  set innerHTML(v) { this.html = String(v); this.children = []; this.ownText = ''; }
+  set innerHTML(v) {
+    this.html = String(v);
+    this.children = [];
+    this.ownText = '';
+    // The fake browser does not parse HTML, except for <details id=".." open>
+    // elements, which become children so open/closed state can be tested.
+    const tag = /<details\b([^>]*)>/g;
+    let m;
+    while ((m = tag.exec(this.html)) !== null) {
+      const d = new El('details');
+      const id = /\sid="([^"]*)"/.exec(m[1]);
+      if (id) d.setAttribute('id', id[1]);
+      d.open = /\sopen(?=[\s>=]|$)/.test(m[1]);
+      this.appendChild(d);
+    }
+  }
+  getElementsByTagName(tag) {
+    const out = [];
+    const walk = (n) => {
+      n.children.forEach((c) => {
+        if (c.nodeName === tag.toUpperCase()) out.push(c);
+        walk(c);
+      });
+    };
+    walk(this);
+    return out;
+  }
   get href() {
     const h = this.attrs.href;
     if (h === undefined) return '';
@@ -65,6 +91,7 @@ function makeBrowser(opts) {
     // Per-address answers: { body, status, mode: 'ok'|'down', delay }.
     responses: {},
     requests: [],
+    posts: [],
     reloads: 0,
     navigations: [],
   };
@@ -86,10 +113,21 @@ function makeBrowser(opts) {
     if (i !== -1) timers.splice(i, 1);
   }
 
+  // Only what app.js uses: FormData(form) copies the form's fields (a list of
+  // [name, value] pairs set up by the page helpers), then append() adds more.
+  class FakeFormData {
+    constructor(form) { this.fields = form ? form.fields.slice() : []; }
+    append(name, value) { this.fields.push([name, String(value)]); }
+  }
+
   class FakeXHR {
     open(method, url) { this.method = method; this.url = url; }
-    send() {
+    send(body) {
       state.requests.push(this.url);
+      if (this.method !== 'GET') {
+        state.posts.push({ method: this.method, url: this.url,
+          fields: body ? body.fields : [] });
+      }
       const custom = state.responses[this.url];
       const mode = custom ? (custom.mode || 'ok') : state.server;
       addTimer(() => {
@@ -135,6 +173,7 @@ function makeBrowser(opts) {
   };
   const sandbox = {
     document, location, Date: FakeDate, XMLHttpRequest: FakeXHR,
+    FormData: FakeFormData,
     setTimeout: (fn, ms) => addTimer(fn, ms, false),
     setInterval: (fn, ms) => addTimer(fn, ms, true),
     clearTimeout: clearTimer, clearInterval: clearTimer,
@@ -193,6 +232,33 @@ function makeBrowser(opts) {
     body.appendChild(list);
     return { tabs, list };
   }
+  // A form inside #shopping-main. `attrs` go on the form (for example
+  // data-swap); each button is { name, value, type, formaction }.
+  function swapForm(attrs, buttons, html) {
+    let main = document.getElementById('shopping-main');
+    if (!main) {
+      main = new El('div');
+      main.setAttribute('id', 'shopping-main');
+      main.innerHTML = html || '<p>OLD</p>';
+      body.appendChild(main);
+    }
+    const form = new El('form');
+    form.setAttribute('method', 'post');
+    form.setAttribute('action', '/shopping/tick');
+    Object.keys(attrs).forEach((k) => form.setAttribute(k, attrs[k]));
+    form.fields = [['week', '2030-01-07']];
+    main.appendChild(form);
+    const made = buttons.map((spec) => {
+      const button = new El('button');
+      ['name', 'value', 'type', 'formaction'].forEach((k) => {
+        if (spec[k] !== undefined) button.setAttribute(k, spec[k]);
+      });
+      button.form = form;
+      form.appendChild(button);
+      return button;
+    });
+    return { main, form, buttons: made };
+  }
   function link(href, attrs) {
     const a = new El('a');
     a.setAttribute('href', href);
@@ -202,7 +268,8 @@ function makeBrowser(opts) {
   }
 
   return {
-    state, body, window: sandbox, advance, fire, click, link, tabsPage, El, clock,
+    state, body, window: sandbox, advance, fire, click, link, tabsPage, swapForm,
+    El, clock,
   };
 }
 

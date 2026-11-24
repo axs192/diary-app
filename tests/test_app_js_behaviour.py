@@ -196,6 +196,103 @@ class AppJsBehaviourTest(unittest.TestCase):
         self.assertTrue(r["prevented"])
         self.assertEqual(r["to"], ["http://diary.test:8000/settings"])
 
+    # --- in-place forms (data-swap) ------------------------------------
+
+    def test_a_swap_form_posts_in_the_background(self) -> None:
+        r = self.results["formSwap"]
+        self.assertTrue(r["prevented"])
+        self.assertEqual(r["navigations"], [])
+        self.assertEqual(
+            r["posts"],
+            [
+                {
+                    "method": "POST",
+                    "url": "/shopping/tick",
+                    # The form's own fields, the tapped button (Safari 9 has
+                    # no SubmitEvent.submitter), then the fragment request.
+                    "fields": [
+                        ["week", "2030-01-07"],
+                        ["key", "meal-onion"],
+                        ["_fragment", "1"],
+                    ],
+                }
+            ],
+        )
+
+    def test_the_answer_replaces_the_target(self) -> None:
+        r = self.results["formSwap"]
+        self.assertEqual(r["html"], "<p>NEW</p>")
+        self.assertEqual(r["reloads"], 0)
+
+    def test_the_target_shows_busy_until_the_answer_arrives(self) -> None:
+        r = self.results["formSwap"]
+        self.assertTrue(r["during"]["busy"])
+        self.assertEqual(r["during"]["html"], "<p>OLD</p>")
+        self.assertFalse(r["busyAfter"])
+
+    def test_a_tap_inside_a_button_counts(self) -> None:
+        r = self.results["formSwapChild"]
+        self.assertEqual((r["html"], r["posts"]), ("<p>NEW</p>", 1))
+
+    def test_a_button_formaction_is_where_it_posts(self) -> None:
+        r = self.results["formSwapFormaction"]
+        self.assertEqual(r["posts"][0]["url"], "/shopping/extras/remove")
+        self.assertIn(["extra_id", "3"], r["posts"][0]["fields"])
+        self.assertEqual(r["html"], "<p>REMOVED</p>")
+
+    def test_a_failed_swap_reloads_the_page(self) -> None:
+        # Not a resubmit: the post may already have reached the server, and
+        # posting a toggle twice would undo it. A reload shows the truth.
+        for key in (
+            "formSwapFails_down",
+            "formSwapFails_timeout",
+            "formSwapFails_500",
+        ):
+            r = self.results[key]
+            self.assertEqual(r["reloads"], 1, key)
+            self.assertEqual(r["navigations"], [], key)
+            self.assertEqual(r["html"], "<p>OLD</p>", key)
+            self.assertFalse(r["busyAfter"], key)
+
+    def test_a_late_answer_for_an_earlier_tap_is_ignored_in_forms(self) -> None:
+        r = self.results["formSwapStale"]
+        self.assertEqual(r["html"], "<p>FAST</p>")
+        self.assertFalse(r["busyAfter"])
+
+    def test_other_buttons_and_forms_are_left_alone(self) -> None:
+        self.assertEqual(
+            self.results["formLeftAlone"],
+            {
+                "typeButton": False,
+                "noSwap": False,
+                "missingTarget": False,
+                "posts": 0,
+            },
+        )
+
+    # --- sections stay open or closed through a swap -------------------
+
+    def test_open_and_closed_sections_survive_a_swap(self) -> None:
+        # The server renders every section closed unless told otherwise, so
+        # without this each tap would snap the user's open aisle shut.
+        self.assertEqual(
+            self.results["openSections"],
+            [
+                ["meat", False],  # the user closed it
+                ["dairy", True],  # the user opened it
+                ["fruit", False],  # untouched
+                ["fresh", True],  # new: the server's default stands
+                [None, False],  # no id: nothing to remember it by
+            ],
+        )
+
+    # --- select-all text boxes -----------------------------------------
+
+    def test_a_select_all_box_selects_its_text_on_focus(self) -> None:
+        r = self.results["selectAll"]
+        self.assertEqual(r["box"], [0, len("Onions\nLeeks")])
+        self.assertIsNone(r["other"])
+
 
 if __name__ == "__main__":
     unittest.main()
