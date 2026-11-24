@@ -12,7 +12,7 @@
 </div>
 {% endmacro %}
 
-{% from "_macros.html" import chevron %}
+{% from "_macros.html" import chevron, outlook_name_select %}
 
 {% block content %}
 <div class="page-head">
@@ -45,7 +45,7 @@
 <details class="acc settings-section" id="section-people"{% if section == 'people' %} open{% endif %}>
   <summary class="acc-head"><span class="acc-row"><span>People &amp; colours</span>{{ chevron() }}</span></summary>
   <div class="acc-body">
-  <p class="muted">Each person's colour, and the Outlook category that will mark their events on the family calendar.</p>
+  <p class="muted">Each person's colour, and the word before the colon in Outlook titles that means them (for example <em>Mummy : Swimming</em>). The list is made from your synced calendar; leave it on \u201cSame as the name\u201d to use their name.</p>
   {% for p in people %}
   <form class="card person" method="post" action="/settings/people/{{ p.id }}">
     <div class="row person-head">
@@ -58,8 +58,8 @@
         <input class="input" id="name-{{ p.id }}" name="name" type="text" value="{{ p.name }}" maxlength="50">
       </div>
       <div class="field">
-        <label class="label" for="cat-{{ p.id }}">Outlook category</label>
-        <input class="input" id="cat-{{ p.id }}" name="outlook_category" type="text" value="{{ p.outlook_category }}" maxlength="50">
+        <label class="label" for="cat-{{ p.id }}">Called this in Outlook</label>
+        {{ outlook_name_select("cat-" ~ p.id, p.outlook_category, cal_prefixes) }}
       </div>
     </div>
     {{ swatches(p.colour) }}
@@ -81,8 +81,8 @@
         </select>
       </div>
       <div class="field">
-        <label class="label" for="new-cat">Outlook category</label>
-        <input class="input" id="new-cat" name="outlook_category" type="text" maxlength="50">
+        <label class="label" for="new-cat">Called this in Outlook</label>
+        {{ outlook_name_select("new-cat", "", cal_prefixes) }}
       </div>
     </div>
     {{ swatches(palette[0][0]) }}

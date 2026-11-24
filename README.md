@@ -118,7 +118,7 @@ never wait for Microsoft. It is read-only. Who an event is for comes from its
 title, `Mum : Swimming` (a name, a colon, then what it is): another word
 before the colon, as in `Birthday : Nan`, becomes a tag for the whole family,
 and a title with no colon is listed under **Needs a name**. Outlook
-categories are not used, because the iPhone app cannot set them. Setup (app
+categories are not used, because the iPhone app cannot set them. If Outlook uses a different word for someone, pick it in their **Called this in Outlook** dropdown in Settings (it lists the words found in the synced titles). Setup (app
 registration, `diary-app login-outlook`, the timer, choosing calendars) is in
 [docs/outlook-setup.md](docs/outlook-setup.md). With no `MS_CLIENT_ID` set the
 rest of the app works as before and the Calendar tab says it is not connected.

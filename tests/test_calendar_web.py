@@ -400,6 +400,106 @@ class SettingsSectionTest(_CalendarTestCase):
         self.assertEqual(response.status_code, 303)
 
 
+class OutlookNameDropdownTest(_CalendarTestCase):
+    """Settings offers the words seen before the colon as each person's name."""
+
+    def person_select(self, html: str, name: str) -> str:
+        found = re.search(
+            r'action="/settings/people/\d+"(?:(?!</form>).)*?'
+            rf"Save {name}</button>",
+            html,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(found, f"no form for {name}")
+        form = found.group(0) if found else ""
+        chosen = re.search(
+            r'<select[^>]*name="outlook_category"[^>]*>.*?</select>',
+            form,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(chosen, f"no dropdown for {name}")
+        return chosen.group(0) if chosen else ""
+
+    def options(self, select: str) -> list[str]:
+        return re.findall(r'<option value="([^"]*)"', select)
+
+    def settings_html(self) -> str:
+        return str(self.client.get("/settings?section=people").text)
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.log_in()
+        self.add_mum()
+
+    def test_before_a_sync_the_only_choice_is_the_persons_own_name(
+        self,
+    ) -> None:
+        select = self.person_select(self.settings_html(), "Mum")
+        self.assertEqual(self.options(select), [""])
+
+    def test_it_offers_the_words_found_in_the_calendar(self) -> None:
+        self.show_family_calendar()
+        select = self.person_select(self.settings_html(), "Mum")
+        self.assertEqual(self.options(select), ["", "Birthday", "Mum"])
+
+    def test_adding_a_person_offers_them_too(self) -> None:
+        self.show_family_calendar()
+        html = self.settings_html()
+        add = html.split('action="/settings/people"', maxsplit=1)[1]
+        self.assertIn('<option value="Birthday"', add)
+
+    def test_a_chosen_word_is_selected_and_kept_even_if_not_seen(self) -> None:
+        self.show_family_calendar()
+        mum_id = re.search(
+            r'action="/settings/people/(\d+)"(?:(?!</form>).)*?Save Mum',
+            self.settings_html(),
+            re.DOTALL,
+        )
+        assert mum_id is not None
+        response = self.client.post(
+            f"/settings/people/{mum_id.group(1)}",
+            data={
+                "name": "Mum",
+                "colour": _MUM_BLUE,
+                "outlook_category": "Mummy",
+            },
+        )
+        self.assertEqual(response.status_code, 303)
+        select = self.person_select(self.settings_html(), "Mum")
+        self.assertIn('<option value="Mummy" selected', select)
+
+    def test_choosing_a_word_moves_those_events_to_that_person(self) -> None:
+        self.graph.events["cal"].append(
+            graph_event(
+                "yoga",
+                "Mummy : Yoga",
+                "2030-01-09T10:00:00",
+                "2030-01-09T11:00:00",
+            )
+        )
+        self.show_family_calendar()
+        card = self.day_card(self.page(), datetime.date(2030, 1, 9))
+        self.assertIn(">Mummy<", card)  # a tag for the family, no person yet
+        mum_id = re.search(
+            r'action="/settings/people/(\d+)"(?:(?!</form>).)*?Save Mum',
+            self.settings_html(),
+            re.DOTALL,
+        )
+        assert mum_id is not None
+        self.client.post(
+            f"/settings/people/{mum_id.group(1)}",
+            data={
+                "name": "Mum",
+                "colour": _MUM_BLUE,
+                "outlook_category": "Mummy",
+            },
+        )
+        card = self.day_card(self.page(), datetime.date(2030, 1, 9))
+        self.assertIn(">Mum<", card)
+        self.assertNotIn(">Mummy<", card)
+        self.assertIn("Yoga", card)
+
+
 class Ios9SafetyTest(_CalendarTestCase):
     """The new pages follow the kitchen iPad's rules."""
 
