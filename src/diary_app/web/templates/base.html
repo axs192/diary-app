@@ -9,6 +9,12 @@
 <meta name="apple-mobile-web-app-title" content="Diary">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <link rel="apple-touch-icon" sizes="152x152" href="/static/apple-touch-icon-152.png">
+{# The page colour is inline, ahead of the stylesheet, so a page change never
+   flashes the browser's backdrop (black in an iOS Home Screen app) while
+   app.css loads. It is the only place this colour is defined. #}
+<style>
+html, body { background: #F4F5F1; }
+</style>
 <link rel="stylesheet" href="/static/app.css">
 {% block head_extra %}{% endblock %}
 <style>

@@ -145,6 +145,10 @@ current phone browsers.
 - **CSS:** no grid, no flex `gap`, no custom properties (`var(--x)`), no
   unprefixed `position: sticky`. Flexbox with margins is fine. Fonts are TTF
   (no WOFF2).
+- **Page changes:** every tap is a full page load, so the page colour is set
+  inline in `base.html` (ahead of the stylesheet) to avoid flashing the
+  browser's backdrop, and `app.css` asks modern browsers to cross-fade
+  (`@view-transition`; iOS 9 ignores it). Keep that colour in one place.
 - **Pages:** server-rendered; every action is a plain form `POST` that answers
   with a `303` redirect. Prefer native elements (`<details>`) to JavaScript.
 - **Guard rails:** `tests/test_app_js.py` fails if `app.js` uses modern syntax
