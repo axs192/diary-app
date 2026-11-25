@@ -628,9 +628,63 @@ details[open] > .acc-head .chev { transform: rotate(90deg); }
 a.cal-event { display: block; color: inherit; text-decoration: none; }
 .cal-day .where { margin: 0 0 8px; }
 
+/* One screen on the tablet: Tonight sits at the top, each child's Today and
+   Tomorrow are side by side, and Coming up starts as one tight line per day.
+   A checkbox and its label swap in the full list (no script). */
+.today > .tonight { order: -1; min-height: 48px; margin-bottom: 12px; }
+.kid-days { display: flex; }
+.kid-days > .kid-day { flex: 1 1 0; min-width: 0; margin: 0 8px 0 0; }
+.kid-days > .kid-day:last-child { margin-right: 0; }
+.coming-full { display: none; }
+.more-toggle:checked ~ .today .coming-full { display: block; }
+.more-toggle:checked ~ .today .coming-compact { display: none; }
+.when-open { display: none; }
+.more-toggle:checked ~ .today .more-btn .when-closed { display: none; }
+.more-toggle:checked ~ .today .more-btn .when-open { display: inline; }
+.more-toggle:focus ~ .today .more-btn { outline: 2px solid #1C2321; }
+.more-btn { margin-top: 4px; }
+.cday { margin: 0 0 10px; }
+.cday-events { display: flex; flex-wrap: wrap; }
+.cev {
+  display: inline-flex;
+  align-items: baseline;
+  margin: 0 6px 6px 0;
+  padding: 4px 10px;
+  border-left: 4px solid #8A5A00;
+  border-radius: 8px;
+  background: #ECEEEA;
+  color: #1C2321;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: none;
+}
+.cev-time { margin-right: 6px; font-size: 13px; color: #5B6661; }
+.cev-who { margin-left: 8px; font-size: 12px; }
+.cev-more { border-left: 0; color: #5B6661; cursor: pointer; }
+.cev-none { font-size: 14px; color: #5B6661; }
+/* Kids' diary: three rows a column, then "+N more" (the page-wide expand).
+   The rows are a little tighter than the 44px tap size while compact. */
+.kid-day .ev-row { min-height: 36px; padding: 3px 0; }
+.kid-extra { display: none; }
+.ev-less { display: none; }
+.ev-more, .ev-less { color: #FFFFFF; font-size: 14px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.more-toggle:checked ~ .today .kid-extra { display: flex; }
+.more-toggle:checked ~ .today .ev-more { display: none; }
+.more-toggle:checked ~ .today .ev-less { display: flex; }
+
 @media (max-width: 600px) {
   .today > .kids { order: 1; }
-  .today > .tonight { order: 2; }
+  .today > .tonight { order: 2; margin-bottom: 16px; }
   .today > .coming { order: 3; }
+  .kid-days { display: block; }
+  .kid-days > .kid-day { margin: 0 0 8px; }
+  .coming-compact { display: none; }
+  .coming-full { display: block; }
+  .more-btn { display: none; }
+  .kid-day .ev-row { min-height: 44px; padding: 6px 0; }
+  .kid-extra { display: flex; }
+  .ev-more { display: none; }
+  .ev-less { display: none; }
   .ev-time { flex-basis: 58px; }
 }

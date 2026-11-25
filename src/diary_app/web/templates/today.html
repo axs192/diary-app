@@ -12,6 +12,10 @@
 {% if not banner.connected or banner.needs_sign_in or banner.problem %}
 {{ sync_notice(banner) }}
 {% endif %}
+{# One checkbox and its labels expand the whole page with no script: the
+   extra kids' events and the full Coming up list (CSS in app.css). Phones
+   always show everything. #}
+<input type="checkbox" id="show-more" class="more-toggle sr-only">
 <div class="today row">
   <section class="kids panel-accent card-block" aria-label="Kids' diary">
     <h2 class="section-title on-accent">Kids' diary</h2>
@@ -21,19 +25,25 @@
         <span class="avatar kid-avatar" style="background: {{ kid.person.colour }}" aria-hidden="true">{{ kid.person.name[:1]|upper }}</span>
         <span class="kid-name">{{ kid.person.name }}</span>
       </div>
+      <div class="kid-days">
       {% for label, events in (("Today", kid.today), ("Tomorrow", kid.tomorrow)) %}
       <div class="kid-day">
         <div class="kid-day-label">{{ label }}</div>
         {% for e in events %}
-        <a class="ev-row" href="{{ event_url(e.id, 'home') }}">
+        <a class="ev-row{% if loop.index > 3 %} kid-extra{% endif %}" href="{{ event_url(e.id, 'home') }}">
           <span class="ev-time">{{ ev_time(e) }}</span>
           <span class="ev-title">{{ e.title }}</span>
         </a>
         {% else %}
         <p class="kid-empty">Nothing on.</p>
         {% endfor %}
+        {% if events|length > 3 %}
+        <label class="ev-row ev-more" for="show-more">+{{ events|length - 3 }} more</label>
+        <label class="ev-row ev-less" for="show-more">Show less</label>
+        {% endif %}
       </div>
       {% endfor %}
+      </div>
     </div>
     {% else %}
     <p class="on-accent-text">No children yet. Add them in <a class="on-accent-link" href="/settings?section=people">Settings &rsaquo; People</a>, choosing <em>Child</em>.</p>
@@ -45,6 +55,25 @@
       <h2 class="section-title">Coming up</h2>
       <span class="muted-inline">to {{ view.until.strftime("%a") }} {{ view.until.day }} {{ view.until.strftime("%b") }}</span>
     </div>
+    <div class="coming-compact">
+      {% for day in view.coming_up[:5] %}
+      <div class="cday">
+        <div class="up-head">
+          <span class="up-label">{% if loop.first %}Tomorrow · {% endif %}{{ day.date.strftime("%a") }} {{ day.date.day }}</span>
+          {{ where_line(day.where) }}
+        </div>
+        <div class="cday-events">
+          {% for e in day.events[:4] %}
+          <a class="cev" style="border-left-color: {{ e.person.colour }}" href="{{ event_url(e.id, 'home') }}">{% if not e.all_day %}<span class="cev-time">{{ e.start|clock }}</span>{% endif %}<span class="cev-title">{{ e.title }}</span><span class="cev-who" style="color: {{ e.person.colour }}">{{ e.person.name }}</span></a>
+          {% endfor %}
+          {% if day.events|length > 4 %}<label class="cev cev-more" for="show-more">+{{ day.events|length - 4 }}</label>{% endif %}
+          {% if not day.events %}<span class="cev-none">Nothing on.</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% if view.coming_up|length > 5 %}<p class="muted cal-empty">{{ view.coming_up|length - 5 }} more days: show full detail.</p>{% endif %}
+    </div>
+    <div class="coming-full">
     {% for day in view.coming_up %}
     <div class="up-day">
       <div class="up-head">
@@ -64,6 +93,8 @@
       {% endfor %}
     </div>
     {% endfor %}
+    </div>
+    <label class="btn more-btn" for="show-more"><span class="when-closed">Show full detail</span><span class="when-open">Show less</span></label>
     {% if banner.connected and not banner.problem and not banner.needs_sign_in %}
     <p class="muted cal-status">{{ banner.synced }}</p>
     {% endif %}
