@@ -45,18 +45,29 @@
 <details class="acc settings-section" id="section-people"{% if section == 'people' %} open{% endif %}>
   <summary class="acc-head"><span class="acc-row"><span>People &amp; colours</span>{{ chevron() }}</span></summary>
   <div class="acc-body">
-  <p class="muted">Each person's colour, and the word before the colon in Outlook titles that means them (for example <em>Mummy : Swimming</em>). The list is made from your synced calendar; leave it on \u201cSame as the name\u201d to use their name.</p>
+  <p class="muted">Choose <em>Child</em> for anyone who should have a block on the Today screen. Each person's colour, and the word before the colon in Outlook titles that means them (for example <em>Mummy : Swimming</em>). The list is made from your synced calendar; leave it on \u201cSame as the name\u201d to use their name.</p>
   {% for p in people %}
-  <form class="card person" method="post" action="/settings/people/{{ p.id }}">
+  <div class="card person">
+  <form method="post" action="/settings/people/{{ p.id }}">
     <div class="row person-head">
       <span class="avatar" style="background: {{ p.colour }}" aria-hidden="true">{{ p.name[:1]|upper }}</span>
-      <span class="role">{{ p.role }}</span>
+      {% if p.role == "Everyone" %}<span class="role">Everyone</span>{% endif %}
     </div>
     <div class="row">
       <div class="field">
         <label class="label" for="name-{{ p.id }}">Name</label>
         <input class="input" id="name-{{ p.id }}" name="name" type="text" value="{{ p.name }}" maxlength="50">
       </div>
+      {% if p.role != "Everyone" %}
+      <div class="field">
+        <label class="label" for="role-{{ p.id }}">Who</label>
+        <select class="input" id="role-{{ p.id }}" name="role">
+          {% for role in roles %}
+          <option value="{{ role }}"{% if role == p.role %} selected{% endif %}>{{ role }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div class="field">
         <label class="label" for="cat-{{ p.id }}">Called this in Outlook</label>
         {{ outlook_name_select("cat-" ~ p.id, p.outlook_category, cal_prefixes) }}
@@ -65,6 +76,16 @@
     {{ swatches(p.colour) }}
     <button class="btn" type="submit">Save {{ p.name }}</button>
   </form>
+  {% if p.role != "Everyone" %}
+  <details class="remove-person">
+    <summary class="btn btn-small">Remove {{ p.name }}</summary>
+    <form method="post" action="/settings/people/{{ p.id }}/delete">
+      <p class="muted">Remove {{ p.name }} from the diary? Their events stay in the calendar but will show as a plain tag for the whole family. Adding the name again brings them back.</p>
+      <button class="btn btn-small" type="submit">Yes, remove {{ p.name }}</button>
+    </form>
+  </details>
+  {% endif %}
+  </div>
   {% endfor %}
 
   <form class="card person" method="post" action="/settings/people">
@@ -121,6 +142,19 @@
 <details class="acc settings-section" id="section-device"{% if section == 'device' %} open{% endif %}>
   <summary class="acc-head"><span class="acc-row"><span>This device</span>{{ chevron() }}</span></summary>
   <div class="acc-body">
+  <form class="card" method="post" action="/settings/today-range">
+    <h3 class="section-title">How far ahead Today looks</h3>
+    <p class="muted">The Coming up list on the Today screen.</p>
+    <div class="row" role="radiogroup" aria-label="How far ahead Today looks">
+      {% for key, label in today_ranges %}
+      <label class="choice">
+        <input type="radio" name="range" value="{{ key }}"{% if key == today_range %} checked{% endif %}>
+        <span class="choice-body option option-text">{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button class="btn" type="submit">Save</button>
+  </form>
   <form method="post" action="/logout">
     <button class="btn" type="submit">Lock the diary</button>
   </form>

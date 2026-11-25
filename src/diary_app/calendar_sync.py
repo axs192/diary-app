@@ -66,6 +66,7 @@ class Event:
         calendar: Name of the Outlook calendar it came from.
         person: Who it is for; ``Family`` when no one is named.
         needs_name: True when the title does not follow the convention.
+        note: Plain-text start of the event's notes; empty if none.
     """
 
     id: str
@@ -77,6 +78,7 @@ class Event:
     calendar: str
     person: Person
     needs_name: bool
+    note: str = ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -378,34 +380,63 @@ def events_by_day(
     last = first + datetime.timedelta(days=days)
     everyone = list_people(conn)
     rows = conn.execute(
-        "SELECT e.id, e.title, e.starts_at, e.ends_at, e.all_day,"
-        " c.name AS calendar FROM event e"
-        " JOIN calendar_source c ON c.graph_id = e.calendar_id"
-        " WHERE e.starts_at < ? AND e.ends_at >= ?",
+        _EVENT_SELECT + " WHERE e.starts_at < ? AND e.ends_at >= ?",
         (_iso(last), _iso(first)),
     )
     week: dict[datetime.date, list[Event]] = {
         first + datetime.timedelta(days=n): [] for n in range(days)
     }
     for row in rows:
-        parsed = parse_title(row["title"], everyone)
-        event = Event(
-            id=row["id"],
-            title=parsed.title,
-            kind=parsed.kind,
-            start=datetime.datetime.fromisoformat(row["starts_at"]),
-            end=datetime.datetime.fromisoformat(row["ends_at"]),
-            all_day=bool(row["all_day"]),
-            calendar=row["calendar"],
-            person=parsed.person,
-            needs_name=parsed.needs_name,
-        )
+        event = _event_from_row(row, everyone)
         for day in _days_of(event):
             if day in week:
                 week[day].append(event)
     for events in week.values():
         events.sort(key=lambda e: (not e.all_day, e.start, e.title.casefold()))
     return week
+
+
+def get_event(conn: sqlite3.Connection, event_id: str) -> Event | None:
+    """Looks one event up by Outlook's id.
+
+    Args:
+        conn: Open database connection.
+        event_id: Outlook's id (one per occurrence of a recurring event).
+
+    Returns:
+        The event, or None if it is not (or no longer) in the diary, for
+        example after Outlook deleted it and the next sync ran.
+    """
+    row = conn.execute(
+        _EVENT_SELECT + " WHERE e.id = ? ORDER BY e.starts_at LIMIT 1",
+        (event_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return _event_from_row(row, list_people(conn))
+
+
+_EVENT_SELECT = (
+    "SELECT e.id, e.title, e.starts_at, e.ends_at, e.all_day, e.note,"
+    " c.name AS calendar FROM event e"
+    " JOIN calendar_source c ON c.graph_id = e.calendar_id"
+)
+
+
+def _event_from_row(row: sqlite3.Row, everyone: Sequence[Person]) -> Event:
+    parsed = parse_title(row["title"], everyone)
+    return Event(
+        id=row["id"],
+        title=parsed.title,
+        kind=parsed.kind,
+        start=datetime.datetime.fromisoformat(row["starts_at"]),
+        end=datetime.datetime.fromisoformat(row["ends_at"]),
+        all_day=bool(row["all_day"]),
+        calendar=row["calendar"],
+        person=parsed.person,
+        needs_name=parsed.needs_name,
+        note=row["note"],
+    )
 
 
 def _days_of(event: Event) -> list[datetime.date]:
@@ -466,8 +497,8 @@ def _store_events(
             continue
         conn.executemany(
             "INSERT OR REPLACE INTO event"
-            " (calendar_id, id, title, starts_at, ends_at, all_day)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
+            " (calendar_id, id, title, starts_at, ends_at, all_day, note)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
                 (
                     calendar_id,
@@ -476,6 +507,7 @@ def _store_events(
                     _iso(e.start),
                     _iso(e.end),
                     int(e.all_day),
+                    e.note,
                 )
                 for e in events
             ],

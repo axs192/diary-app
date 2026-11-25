@@ -559,3 +559,78 @@ details[open] > .acc-head .chev { transform: rotate(90deg); }
 .notice-warn { background: #FBE6DC; color: #7A2F0B; }
 .check-row { display: flex; align-items: center; min-height: 44px; font-size: 17px; }
 .check-row input { width: 22px; height: 22px; margin: 0 12px 0 0; }
+
+/* Removing a person: a native two-step, no script */
+.remove-person { margin-top: 12px; }
+.remove-person > summary { display: inline-block; cursor: pointer; list-style: none; }
+.remove-person > summary::-webkit-details-marker { display: none; }
+.remove-person form { margin-top: 8px; }
+
+/* Today: kids' diary and Coming up side by side, Tonight along the bottom.
+   Flex and margins only (no grid, no flex gap) for iOS 9. */
+.option-text { padding: 10px 16px; }
+.today { margin: 0 -8px; align-items: stretch; }
+.today > * { margin: 0 8px 16px; }
+.kids { flex: 1 1 360px; min-width: 0; margin-bottom: 16px; }
+.coming { flex: 1 1 300px; min-width: 0; margin-bottom: 16px; }
+.on-accent-link { color: #FFFFFF; font-weight: 700; }
+.kid { margin-bottom: 16px; }
+.kid-head { display: flex; align-items: center; margin-bottom: 8px; }
+.kid-avatar { width: 36px; height: 36px; font-size: 15px; margin-right: 10px; border: 2px solid #FFFFFF; }
+.kid-name { color: #FFFFFF; font-size: 20px; font-weight: 700; }
+.kid-day { margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.16); }
+.kid-day-label { color: #FFFFFF; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
+.kid-empty { margin: 0; color: #FFFFFF; font-size: 15px; opacity: 0.85; }
+.ev-row {
+  display: flex;
+  align-items: baseline;
+  min-height: 44px;
+  padding: 6px 0;
+  color: inherit;
+  text-decoration: none;
+}
+.kid-day .ev-row { color: #FFFFFF; }
+.ev-time { flex: 0 0 64px; font-size: 14px; font-weight: 700; }
+.ev-title { font-size: 17px; font-weight: 700; line-height: 1.25; overflow-wrap: break-word; min-width: 0; }
+.ev-body { display: flex; flex-direction: column; min-width: 0; }
+.ev-who { font-size: 13px; font-weight: 700; }
+.ev-up { margin: 0 0 6px; padding: 4px 0 4px 10px; border-left: 5px solid #8A5A00; }
+.ev-up .ev-time { color: #5B6661; }
+.coming-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.up-day { margin: 0 0 14px; }
+.up-head { display: flex; flex-wrap: wrap; align-items: baseline; margin-bottom: 4px; }
+.up-label { margin-right: 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #5B6661; }
+.where { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; }
+.up-head .where { margin: 0; }
+.where-item { margin: 0 12px 2px 0; font-size: 13px; font-weight: 700; color: #3F4844; }
+.where-dot { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 999px; }
+.tonight {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  padding: 10px 18px;
+  border-radius: 16px;
+  background: #1C2321;
+  color: #FFFFFF;
+  text-decoration: none;
+}
+.tonight-label { margin-right: 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.8; }
+.tonight-meal { font-size: 18px; font-weight: 700; }
+.tonight-empty { background: #ECEEEA; color: #3F4844; }
+
+/* Event page */
+.event-card { margin-bottom: 16px; }
+.event-when { margin: 0 0 10px; font-size: 20px; font-weight: 700; }
+.event-note { margin: 0 0 12px; font-size: 18px; line-height: 1.4; white-space: pre-line; overflow-wrap: break-word; }
+
+/* Calendar: events are links now, and a Where line sits under the date */
+a.cal-event { display: block; color: inherit; text-decoration: none; }
+.cal-day .where { margin: 0 0 8px; }
+
+@media (max-width: 600px) {
+  .today > .kids { order: 1; }
+  .today > .tonight { order: 2; }
+  .today > .coming { order: 3; }
+  .ev-time { flex-basis: 58px; }
+}

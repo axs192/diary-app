@@ -8,7 +8,7 @@ from typing import Any
 import fastapi
 from fastapi import responses
 
-from diary_app import calendar_sync, mealplan
+from diary_app import calendar_sync, mealplan, schedule
 from diary_app.web import common, meals
 
 router = common.protected_router()
@@ -37,14 +37,14 @@ class Banner:
     synced: str
 
 
-def _clock(moment: datetime.datetime) -> str:
+def clock(moment: datetime.datetime) -> str:
     """Formats a time the way the family says it: ``5pm``, ``9:30am``."""
     hour = moment.hour % 12 or 12
     minutes = f":{moment.minute:02d}" if moment.minute else ""
     return f"{hour}{minutes}{'am' if moment.hour < 12 else 'pm'}"  # noqa: PLR2004
 
 
-common.TEMPLATES.env.filters["clock"] = _clock
+common.TEMPLATES.env.filters["clock"] = clock
 
 
 def _now(request: fastapi.Request) -> datetime.datetime:
@@ -56,7 +56,8 @@ def _now(request: fastapi.Request) -> datetime.datetime:
     )
 
 
-def _banner(request: fastapi.Request, conn: sqlite3.Connection) -> Banner:
+def banner(request: fastapi.Request, conn: sqlite3.Connection) -> Banner:
+    """Says how the link to Outlook stands, for the pages that show events."""
     status = calendar_sync.status(conn)
     today = request.app.state.today()
     if status.synced_at is None:
@@ -90,7 +91,7 @@ def settings_context(
         Template values to merge into the Settings context.
     """
     return {
-        "cal_banner": _banner(request, conn),
+        "cal_banner": banner(request, conn),
         "cal_choices": calendar_sync.list_calendars(conn),
         "cal_window": calendar_sync.sync_window(conn),
         "cal_prefixes": calendar_sync.title_prefixes(conn),
@@ -104,11 +105,11 @@ def show_calendar(
     """Shows one week of the family calendar."""
     today = request.app.state.today()
     monday = mealplan.monday_of(meals.parse_day(week) or today)
-    days = calendar_sync.events_by_day(conn, monday, _DAYS)
+    days = schedule.by_day(conn, monday, _DAYS)
     seen: set[str] = set()
     needs_name = []
-    for events in days.values():
-        for event in events:
+    for day in days:
+        for event in day.events:
             if event.needs_name and event.id not in seen:
                 seen.add(event.id)
                 needs_name.append(event)
@@ -119,9 +120,9 @@ def show_calendar(
         "calendar.html",
         monday=monday,
         today=today,
-        days=list(days.items()),
+        days=days,
         needs_name=needs_name,
-        banner=_banner(request, conn),
+        banner=banner(request, conn),
         prev_week=f"/calendar?week={(monday - step).isoformat()}",
         next_week=f"/calendar?week={(monday + step).isoformat()}",
     )

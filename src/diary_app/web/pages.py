@@ -1,12 +1,19 @@
-"""Routes for the login page, the Today screen and Settings."""
+"""Routes for the login page and Settings."""
 
-import datetime
 import sqlite3
 
 import fastapi
 from fastapi import responses
 
-from diary_app import db, import_sites, people, recipe_import, security, theme
+from diary_app import (
+    db,
+    import_sites,
+    people,
+    recipe_import,
+    security,
+    theme,
+    today,
+)
 from diary_app.web import calendar as calendar_web
 from diary_app.web import common
 
@@ -80,21 +87,6 @@ def submit_logout(request: fastapi.Request) -> responses.RedirectResponse:
     return common.back_to("/login")
 
 
-@protected.get("/home")
-def show_today(
-    request: fastapi.Request, conn: common.Db
-) -> responses.HTMLResponse:
-    """Shows the Today screen (the kitchen iPad's home page)."""
-    now = datetime.datetime.now()  # server local time
-    return common.render(
-        request,
-        conn,
-        "today.html",
-        long_date=f"{now:%A} {now.day} {now:%B}",
-        week=now.isocalendar().week,
-    )
-
-
 @protected.get("/settings")
 def show_settings(
     request: fastapi.Request, conn: common.Db, section: str = ""
@@ -115,6 +107,8 @@ def show_settings(
         people=people.list_people(conn),
         palette=list(theme.PERSON_COLOURS.items()),
         roles=people.ADDABLE_ROLES,
+        today_ranges=today.RANGES,
+        today_range=today.get_range(conn),
         **calendar_web.settings_context(request, conn),
     )
 
@@ -159,8 +153,12 @@ def submit_person_update(  # noqa: PLR0913
     name: common.FormText = "",
     colour: common.FormText = "",
     outlook_category: common.FormText = "",
+    role: common.FormText = "",
 ) -> responses.Response:
-    """Changes a person's name, colour and Outlook category."""
+    """Changes a person's name, colour, Outlook name and role.
+
+    A blank ``role`` leaves it as it is.
+    """
     try:
         people.update_person(
             conn,
@@ -168,7 +166,22 @@ def submit_person_update(  # noqa: PLR0913
             name=name,
             colour=colour,
             outlook_category=outlook_category,
+            role=role,
         )
+    except people.InvalidPersonError as exc:
+        return _rejected(request, conn, str(exc), "people")
+    except LookupError as exc:
+        raise fastapi.HTTPException(status_code=404) from exc
+    return common.back_to(_settings_url("people"))
+
+
+@protected.post("/settings/people/{person_id}/delete", response_model=None)
+def submit_person_delete(
+    request: fastapi.Request, conn: common.Db, person_id: int
+) -> responses.Response:
+    """Removes a person (Family stays)."""
+    try:
+        people.delete_person(conn, person_id)
     except people.InvalidPersonError as exc:
         return _rejected(request, conn, str(exc), "people")
     except LookupError as exc:
