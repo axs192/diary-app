@@ -20,6 +20,7 @@ RANGES: Final = (
     ("14", "Next 14 days"),
 )
 _KEY = "today_range"
+_NOTES_KEY = "show_notes"
 _DEFAULT = "sunday"
 _SUNDAY = 6  # date.weekday() counts Monday as 0
 
@@ -83,6 +84,31 @@ def set_range(conn: sqlite3.Connection, key: str) -> None:
         msg = "Pick one of the offered ranges."
         raise ValueError(msg)
     db.set_setting(conn, _KEY, key)
+
+
+def get_show_notes(conn: sqlite3.Connection) -> bool:
+    """Reads whether the event page shows an event's notes.
+
+    Notes can hold private things (door codes, medical details), and this
+    screen is on a wall, so a household can switch them off.
+
+    Args:
+        conn: Open database connection.
+
+    Returns:
+        False only if someone turned notes off; shown until then.
+    """
+    return db.get_setting(conn, _NOTES_KEY, "1") != "0"
+
+
+def set_show_notes(conn: sqlite3.Connection, *, show: bool) -> None:
+    """Saves whether the event page shows an event's notes.
+
+    Args:
+        conn: Open database connection.
+        show: True to show notes, False to hide them.
+    """
+    db.set_setting(conn, _NOTES_KEY, "1" if show else "0")
 
 
 def view(conn: sqlite3.Connection, today: datetime.date) -> TodayView:

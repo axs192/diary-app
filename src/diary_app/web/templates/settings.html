@@ -45,7 +45,7 @@
 <details class="acc settings-section" id="section-people"{% if section == 'people' %} open{% endif %}>
   <summary class="acc-head"><span class="acc-row"><span>People &amp; colours</span>{{ chevron() }}</span></summary>
   <div class="acc-body">
-  <p class="muted">Choose <em>Child</em> for anyone who should have a block on the Today screen. Each person's colour, and the word before the colon in Outlook titles that means them (for example <em>Mummy : Swimming</em>). The list is made from your synced calendar; leave it on \u201cSame as the name\u201d to use their name.</p>
+  <p class="muted">Choose <em>Child</em> for anyone who should have a block on the Today screen. Each person's colour, and the word before the colon in Outlook titles that means them (for example <em>Mummy : Swimming</em>). The list is made from your synced calendar; leave it on “Same as the name” to use their name.</p>
   {% for p in people %}
   <div class="card person">
   <form method="post" action="/settings/people/{{ p.id }}">
@@ -153,6 +153,15 @@
       </label>
       {% endfor %}
     </div>
+    <button class="btn" type="submit">Save</button>
+  </form>
+  <form class="card" method="post" action="/settings/show-notes">
+    <h3 class="section-title">Event notes</h3>
+    <p class="muted">Notes written on an event in Outlook appear on its page. Turn this off if they might hold private things, such as a door code, since this screen is on the wall.</p>
+    <label class="check-row">
+      <input type="checkbox" name="notes" value="1"{% if show_notes %} checked{% endif %}>
+      Show notes on event pages
+    </label>
     <button class="btn" type="submit">Save</button>
   </form>
   <form method="post" action="/logout">

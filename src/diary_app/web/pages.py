@@ -109,6 +109,7 @@ def show_settings(
         roles=people.ADDABLE_ROLES,
         today_ranges=today.RANGES,
         today_range=today.get_range(conn),
+        show_notes=today.get_show_notes(conn),
         **calendar_web.settings_context(request, conn),
     )
 

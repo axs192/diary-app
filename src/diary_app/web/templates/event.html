@@ -11,7 +11,7 @@
     <li class="chip cal-person" style="background: {{ event.person.colour }}">{{ event.person.name }}</li>
     {% if event.kind %}<li class="chip chip-kind">{{ event.kind }}</li>{% endif %}
   </ul>
-  {% if event.note %}<p class="event-note">{{ event.note }}</p>{% endif %}
+  {% if note %}<p class="event-note">{{ note }}</p>{% endif %}
   <p class="muted">From the {{ event.calendar }} calendar.</p>
 </article>
 <a class="btn" href="{{ back }}">&larr; Back</a>

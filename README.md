@@ -118,7 +118,9 @@ tomorrow. **Coming up** lists each day after today with its events and a line
 saying where each adult is. **Tonight** shows today's planned dinner. Tap an
 event for its own page (who, when, the notes you wrote in Outlook). How far
 ahead Coming up looks (until Sunday, 7 days or 14) is in Settings > This device;
-the calendar sync window (Settings > Calendar) must cover it. The page
+the calendar sync window (Settings > Calendar) must cover it. Settings > This
+device can also hide event notes from the event page (on by default), since
+notes may hold private things and the screen is on a wall. The page
 refreshes itself every five minutes.
 
 **Where adults are.** Add an event titled `Alex : [London]` (name, colon, place

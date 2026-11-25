@@ -2,6 +2,7 @@
 
 import datetime
 import urllib.parse
+from typing import Annotated
 
 import fastapi
 from fastapi import responses
@@ -76,11 +77,11 @@ def show_today(
 def show_event(
     request: fastapi.Request,
     conn: common.Db,
-    id: str = "",
+    event_id: str = fastapi.Query("", alias="id"),
     source: str = fastapi.Query("", alias="from"),
 ) -> responses.Response:
     """Shows one event: who it is for, when, and its notes."""
-    event = calendar_sync.get_event(conn, id) if id else None
+    event = calendar_sync.get_event(conn, event_id) if event_id else None
     if event is None:
         return common.rejected(
             request,
@@ -101,6 +102,7 @@ def show_event(
         conn,
         "event.html",
         event=event,
+        note=event.note if today.get_show_notes(conn) else "",
         when=_when(event),
         back=back,
     )
@@ -110,11 +112,21 @@ def show_event(
 def submit_range(
     request: fastapi.Request,
     conn: common.Db,
-    range: common.FormText = "",
+    choice: Annotated[str, fastapi.Form(alias="range")] = "",
 ) -> responses.Response:
     """Saves how far ahead Coming up looks."""
     try:
-        today.set_range(conn, range)
+        today.set_range(conn, choice)
     except ValueError as exc:
         return common.rejected(request, conn, str(exc), _DEVICE_SETTINGS)
+    return common.back_to(_DEVICE_SETTINGS)
+
+
+@router.post("/settings/show-notes")
+def submit_show_notes(
+    conn: common.Db,
+    notes: Annotated[str, fastapi.Form()] = "",
+) -> responses.RedirectResponse:
+    """Saves whether event pages show notes (a ticked box sends ``1``)."""
+    today.set_show_notes(conn, show=notes == "1")
     return common.back_to(_DEVICE_SETTINGS)
