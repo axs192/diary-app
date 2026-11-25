@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import os
 import pathlib
 from collections.abc import Callable
 
@@ -10,6 +11,8 @@ import fastapi.responses
 import fastapi.staticfiles
 import httpx
 from starlette.middleware import sessions
+from starlette.responses import Response
+from starlette.types import Scope
 
 from diary_app import config, outlook, planner, security
 from diary_app.web import calendar as calendar_web
@@ -18,6 +21,35 @@ from diary_app.web import today as today_web
 
 _logger = logging.getLogger(__name__)
 _STATIC = pathlib.Path(__file__).parent / "web" / "static"
+_REVALIDATE = (".css", ".js")
+
+
+class _StaticFiles(fastapi.staticfiles.StaticFiles):
+    """Static files whose stylesheet and script are re-checked on every load.
+
+    The pages link ``/static/app.css`` without a version, and a browser may
+    keep an old copy for hours when told nothing (a phone once drew a new
+    page with the previous deploy's stylesheet). ``no-cache`` makes it ask
+    first; the answer is a tiny 304 when nothing changed. Fonts never change,
+    so they stay cached.
+    """
+
+    def file_response(
+        self,
+        full_path: os.PathLike[str] | str,
+        stat_result: os.stat_result,
+        scope: Scope,
+        status_code: int = 200,
+    ) -> Response:
+        """Builds the response, adding the cache rule for CSS and JS."""
+        response = super().file_response(
+            full_path, stat_result, scope, status_code
+        )
+        if str(full_path).endswith(_REVALIDATE):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 # The kitchen iPad should stay logged in, so the cookie lasts a year.
 _SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
 _GRAPH_TIMEOUT_SECONDS = 20.0
@@ -121,7 +153,7 @@ def create_app(
     )
     app.mount(
         "/static",
-        fastapi.staticfiles.StaticFiles(directory=_STATIC),
+        _StaticFiles(directory=_STATIC),
         name="static",
     )
 
