@@ -3,11 +3,22 @@
 {% block title %}Diary · Today{% endblock %}
 {% block head_extra %}<meta http-equiv="refresh" content="300">{% endblock %}
 {% block content %}
-<div class="page-head">
+<div class="page-head today-head">
   <div>
     <div class="eyebrow">Week {{ week }}</div>
     <h1 class="title">{{ long_date }}</h1>
   </div>
+  {% if view.tonight %}
+  <a class="tonight" href="/recipes/{{ view.tonight.id }}">
+    <span class="tonight-label">Tonight</span>
+    <span class="tonight-meal">{{ view.tonight.name }}</span>
+  </a>
+  {% else %}
+  <a class="tonight tonight-empty" href="/meals">
+    <span class="tonight-label">Tonight</span>
+    <span class="tonight-meal">No dinner planned</span>
+  </a>
+  {% endif %}
 </div>
 {% if not banner.connected or banner.needs_sign_in or banner.problem %}
 {{ sync_notice(banner) }}
@@ -25,25 +36,27 @@
         <span class="avatar kid-avatar" style="background: {{ kid.person.colour }}" aria-hidden="true">{{ kid.person.name[:1]|upper }}</span>
         <span class="kid-name">{{ kid.person.name }}</span>
       </div>
-      <div class="kid-days">
+      {# Compact view: this many rows a day, then "+N more" #}
+      {% set rows = 2 %}
       {% for label, events in (("Today", kid.today), ("Tomorrow", kid.tomorrow)) %}
       <div class="kid-day">
-        <div class="kid-day-label">{{ label }}</div>
+        <div class="kid-day-label">
+          <span>{{ label }}</span>
+          {% if events|length > rows %}
+          <label class="ev-more" for="show-more">+{{ events|length - rows }} more</label>
+          <label class="ev-less" for="show-more">Show less</label>
+          {% endif %}
+        </div>
         {% for e in events %}
-        <a class="ev-row{% if loop.index > 3 %} kid-extra{% endif %}" href="{{ event_url(e.id, 'home') }}">
+        <a class="ev-row{% if loop.index > rows %} kid-extra{% endif %}" href="{{ event_url(e.id, 'home') }}">
           <span class="ev-time">{{ ev_time(e) }}</span>
           <span class="ev-title">{{ e.title }}</span>
         </a>
         {% else %}
         <p class="kid-empty">Nothing on.</p>
         {% endfor %}
-        {% if events|length > 3 %}
-        <label class="ev-row ev-more" for="show-more">+{{ events|length - 3 }} more</label>
-        <label class="ev-row ev-less" for="show-more">Show less</label>
-        {% endif %}
       </div>
       {% endfor %}
-      </div>
     </div>
     {% else %}
     <p class="on-accent-text">No children yet. Add them in <a class="on-accent-link" href="/settings?section=people">Settings &rsaquo; People</a>, choosing <em>Child</em>.</p>
@@ -99,17 +112,5 @@
     <p class="muted cal-status">{{ banner.synced }}</p>
     {% endif %}
   </section>
-
-  {% if view.tonight %}
-  <a class="tonight" href="/recipes/{{ view.tonight.id }}">
-    <span class="tonight-label">Tonight</span>
-    <span class="tonight-meal">{{ view.tonight.name }}</span>
-  </a>
-  {% else %}
-  <a class="tonight tonight-empty" href="/meals">
-    <span class="tonight-label">Tonight</span>
-    <span class="tonight-meal">No dinner planned</span>
-  </a>
-  {% endif %}
 </div>
 {% endblock %}

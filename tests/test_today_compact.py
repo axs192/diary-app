@@ -46,7 +46,7 @@ class ToggleTest(_CompactTestCase):
         html = self.home()
         box = html.index('id="show-more"')
         self.assertLess(box, html.index('class="today '))
-        self.assertLess(box, html.index('class="kid-days"'))
+        self.assertLess(box, html.index('class="kid"'))
         self.assertLess(box, html.index('class="coming-full"'))
 
     def test_the_page_still_loads_only_the_app_script(self) -> None:
@@ -106,16 +106,40 @@ class CompactListTest(_CompactTestCase):
         self.assertNotIn("<b>Hi</b>", compact)
 
 
-class KidsColumnsTest(_CompactTestCase):
-    def test_today_and_tomorrow_share_a_row_for_each_child(self) -> None:
+class KidsStackedTest(_CompactTestCase):
+    """Today and Tomorrow are stacked so an event title gets the full width."""
+
+    def test_each_child_has_today_then_tomorrow_with_no_side_by_side_row(
+        self,
+    ) -> None:
         html = self.home()
-        self.assertEqual(html.count('class="kid-days"'), 1)
-        row = html.split('class="kid-days"', maxsplit=1)[1]
-        self.assertLess(row.index("Today"), row.index("Tomorrow"))
+        self.assertNotIn("kid-days", html)
+        kid = html.split('class="kid"', maxsplit=1)[1]
+        self.assertLess(kid.index("Today"), kid.index("Tomorrow"))
+
+    def test_the_stylesheet_does_not_put_them_in_columns(self) -> None:
+        self.assertNotIn("kid-days", self.client.get("/static/app.css").text)
+
+
+class TonightInHeaderTest(_CompactTestCase):
+    """Tonight sits beside the date so the dinner never needs a scroll."""
+
+    def test_tonight_is_in_the_header_before_the_panels(self) -> None:
+        html = self.home()
+        head = html.split('class="today row"', maxsplit=1)[0]
+        self.assertIn('class="page-head today-head"', head)
+        self.assertRegex(head, r'<a class="tonight[^"]*"')
+        self.assertIn("Tonight", head)
+        self.assertEqual(len(re.findall(r'class="tonight[ "]', html)), 1)
+
+    def test_the_date_and_week_are_still_there(self) -> None:
+        html = self.home()
+        self.assertIn("Tuesday 8 January", html)
+        self.assertIn("Week 2", html)
 
 
 class BusyKidTest(_CompactTestCase):
-    """A child with many events shows three rows and counts the rest."""
+    """A child with many events shows two rows and counts the rest."""
 
     def busy(self, timed: int = 4) -> str:
         events = [cal.all_day("all", "Sam : Own clothes day", 8)]
@@ -131,25 +155,25 @@ class BusyKidTest(_CompactTestCase):
         ]
         self.sync(events)
         html = self.home()
-        row = html.split('class="kid-days"', maxsplit=1)[1]
+        row = html.split('class="kid"', maxsplit=1)[1]
         return row.split("</section>", maxsplit=1)[0]
 
     def today_column(self, kids: str) -> str:
         return kids.split("Tomorrow", maxsplit=1)[0]
 
-    def test_five_events_show_three_and_hide_two(self) -> None:
+    def test_five_events_show_two_and_hide_three(self) -> None:
         today = self.today_column(self.busy())
-        self.assertEqual(today.count('class="ev-row"'), 3)
-        self.assertEqual(today.count('class="ev-row kid-extra"'), 2)
-        self.assertIn("+2 more", today)
+        self.assertEqual(today.count('class="ev-row"'), 2)
+        self.assertEqual(today.count('class="ev-row kid-extra"'), 3)
+        self.assertIn("+3 more", today)
 
     def test_the_all_day_event_and_earliest_come_first(self) -> None:
         today = self.today_column(self.busy())
         shown, hidden = today.split('class="ev-row kid-extra"', maxsplit=1)
         self.assertIn("Own clothes day", shown)
         self.assertIn("Thing 0", shown)
-        self.assertIn("Thing 1", shown)
-        self.assertNotIn("Thing 3", shown)
+        self.assertNotIn("Thing 1", shown)
+        self.assertIn("Thing 1", hidden)
         self.assertIn("Thing 3", hidden)
 
     def test_the_hidden_events_are_still_in_the_page_for_the_expand(
@@ -159,14 +183,14 @@ class BusyKidTest(_CompactTestCase):
         for n in range(4):
             self.assertIn(f"Thing {n}", today)
 
-    def test_three_events_need_no_more_button(self) -> None:
-        today = self.today_column(self.busy(timed=2))
+    def test_two_events_need_no_more_button(self) -> None:
+        today = self.today_column(self.busy(timed=1))
         self.assertNotIn("more", today.lower().replace("tomorrow", ""))
         self.assertNotIn("kid-extra", today)
 
     def test_the_more_and_less_buttons_toggle_the_page_checkbox(self) -> None:
         today = self.today_column(self.busy())
-        self.assertRegex(today, r'<label[^>]*for="show-more"[^>]*>\+2 more')
+        self.assertRegex(today, r'<label[^>]*for="show-more"[^>]*>\+3 more')
         self.assertRegex(today, r'<label[^>]*for="show-more"[^>]*>Show less')
 
     def test_tomorrow_is_capped_separately(self) -> None:
@@ -183,19 +207,24 @@ class BusyKidTest(_CompactTestCase):
         self.sync(events)
         html = self.home()
         tomorrow = html.split("Tomorrow", maxsplit=2)[1]
-        self.assertEqual(tomorrow.count("kid-extra"), 2)
-        self.assertIn("+2 more", tomorrow)
+        self.assertEqual(tomorrow.count("kid-extra"), 3)
+        self.assertIn("+3 more", tomorrow)
 
 
 class StylesheetTest(_CompactTestCase):
     def css(self) -> str:
         return str(self.client.get("/static/app.css").text)
 
-    def test_tonight_moves_to_the_top_on_wide_screens_only(self) -> None:
+    def test_the_header_row_holds_the_date_and_tonight_on_wide_screens(
+        self,
+    ) -> None:
         css = self.css()
-        wide, _, phone = css.partition("@media (max-width: 600px) {\n  .today")
-        self.assertRegex(wide, r"\.today > \.tonight \{[^}]*order: -1")
-        self.assertRegex(phone, r"\.today > \.tonight \{[^}]*order: 2")
+        wide, _, phone = css.rpartition("@media (max-width: 600px) {")
+        self.assertRegex(wide, r"\.today-head \{[^}]*display: flex")
+        self.assertRegex(phone, r"\.today-head \{[^}]*display: block")
+
+    def test_there_is_no_ordering_trick_left(self) -> None:
+        self.assertNotRegex(self.css(), r"\.today > \.tonight \{[^}]*order")
 
     def test_the_toggle_swaps_the_lists_with_no_script(self) -> None:
         css = self.css()
