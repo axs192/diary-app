@@ -579,7 +579,7 @@ details[open] > .acc-head .chev { transform: rotate(90deg); }
 .kid-avatar { width: 36px; height: 36px; font-size: 15px; margin-right: 10px; border: 2px solid #FFFFFF; }
 .kid-name { color: #FFFFFF; font-size: 20px; font-weight: 700; }
 .kid-day { margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.16); }
-.kid-day-label { color: #FFFFFF; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
+.kid-day-label { display: flex; align-items: center; justify-content: space-between; color: #FFFFFF; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
 .kid-empty { margin: 0; color: #FFFFFF; font-size: 15px; opacity: 0.85; }
 .ev-row {
   display: flex;
@@ -628,9 +628,59 @@ details[open] > .acc-head .chev { transform: rotate(90deg); }
 a.cal-event { display: block; color: inherit; text-decoration: none; }
 .cal-day .where { margin: 0 0 8px; }
 
+/* One screen on the tablet: Tonight sits beside the date, each child's Today
+   and Tomorrow stay stacked (an event title gets the full width), and Coming
+   up starts as one tight line per day. A checkbox and its labels expand
+   everything (no script). */
+.today-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.today-head .tonight { flex: 1 1 0; min-width: 0; margin: 0 0 0 24px; }
+.coming-full { display: none; }
+.more-toggle:checked ~ .today .coming-full { display: block; }
+.more-toggle:checked ~ .today .coming-compact { display: none; }
+.when-open { display: none; }
+.more-toggle:checked ~ .today .more-btn .when-closed { display: none; }
+.more-toggle:checked ~ .today .more-btn .when-open { display: inline; }
+.more-toggle:focus ~ .today .more-btn { outline: 2px solid #1C2321; }
+.more-btn { margin-top: 4px; }
+.cday { margin: 0 0 10px; }
+.cday-events { display: flex; flex-wrap: wrap; }
+.cev {
+  display: inline-flex;
+  align-items: baseline;
+  margin: 0 6px 6px 0;
+  padding: 4px 10px;
+  border-left: 4px solid #8A5A00;
+  border-radius: 8px;
+  background: #ECEEEA;
+  color: #1C2321;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: none;
+}
+.cev-time { margin-right: 6px; font-size: 13px; color: #5B6661; }
+.cev-who { margin-left: 8px; font-size: 12px; }
+.cev-more { border-left: 0; color: #5B6661; cursor: pointer; }
+.cev-none { font-size: 14px; color: #5B6661; }
+/* Kids' diary: three rows a column, then "+N more" (the page-wide expand).
+   The rows are a little tighter than the 44px tap size while compact. */
+.kid-day .ev-row { min-height: 36px; padding: 3px 0; }
+.kid-extra { display: none; }
+.ev-less { display: none; }
+.ev-more, .ev-less { color: #FFFFFF; font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; text-decoration: underline; cursor: pointer; padding: 10px 6px; margin: -10px -6px; }
+.more-toggle:checked ~ .today .kid-extra { display: flex; }
+.more-toggle:checked ~ .today .ev-more { display: none; }
+.more-toggle:checked ~ .today .ev-less { display: inline; }
+
 @media (max-width: 600px) {
-  .today > .kids { order: 1; }
-  .today > .tonight { order: 2; }
-  .today > .coming { order: 3; }
+  .today-head { display: block; }
+  .today-head .tonight { margin: 12px 0 0; }
+  .coming-compact { display: none; }
+  .coming-full { display: block; }
+  .more-btn { display: none; }
+  .kid-day .ev-row { min-height: 44px; padding: 6px 0; }
+  .kid-extra { display: flex; }
+  .ev-more { display: none; }
+  .ev-less { display: none; }
   .ev-time { flex-basis: 58px; }
 }
