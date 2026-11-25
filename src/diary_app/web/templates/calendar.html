@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import acc_head %}
+{% from "_macros.html" import acc_head, where_line, sync_notice %}
 {% block title %}Diary · Calendar{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -12,30 +12,22 @@
   </div>
 </div>
 
-{% if not banner.connected %}
-<p class="notice notice-warn" role="status">Outlook is not connected yet. See <a href="/settings?section=calendar">Settings &rsaquo; Calendar</a>.</p>
-{% else %}
-{% if banner.needs_sign_in %}
-<p class="notice notice-warn" role="status">Outlook needs signing in again. On the server run <code>diary-app login-outlook</code>. <a href="/settings?section=calendar">More in Settings</a>.</p>
-{% elif banner.problem %}
-<p class="notice notice-warn" role="status">The last sync failed: {{ banner.problem }} <a href="/settings?section=calendar">Settings</a></p>
-{% endif %}
-<p class="muted cal-status">{{ banner.synced }}</p>
-{% endif %}
+{{ sync_notice(banner) }}
 
 <div class="cal-days row">
-  {% for day, events in days %}
+  {% for d in days %}{% set day = d.date %}
   <article class="cal-day card{% if day == today %} cal-today{% endif %}" id="day-{{ day.isoformat() }}">
     <h2 class="day-name">{{ day.strftime("%a") }} <span class="muted-inline">{{ day.day }} {{ day.strftime("%b") }}</span></h2>
-    {% for e in events %}
-    <div class="cal-event" style="border-left-color: {{ e.person.colour }}">
+    {{ where_line(d.where) }}
+    {% for e in d.events %}
+    <a class="cal-event" style="border-left-color: {{ e.person.colour }}" href="{{ event_url(e.id, 'calendar') }}">
       <div class="cal-time">{% if e.all_day %}All day{% else %}{{ e.start|clock }}&ndash;{{ e.end|clock }}{% endif %}</div>
       <div class="cal-title">{{ e.title }}</div>
       <ul class="chips cal-chips">
         <li class="chip cal-person" style="background: {{ e.person.colour }}">{{ e.person.name }}</li>
         {% if e.kind %}<li class="chip chip-kind">{{ e.kind }}</li>{% endif %}
       </ul>
-    </div>
+    </a>
     {% else %}
     <p class="muted cal-empty">Nothing on.</p>
     {% endfor %}

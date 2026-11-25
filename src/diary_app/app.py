@@ -14,6 +14,7 @@ from starlette.middleware import sessions
 from diary_app import config, outlook, planner, security
 from diary_app.web import calendar as calendar_web
 from diary_app.web import meals, pages, recipe_pages, shopping
+from diary_app.web import today as today_web
 
 _logger = logging.getLogger(__name__)
 _STATIC = pathlib.Path(__file__).parent / "web" / "static"
@@ -136,6 +137,7 @@ def create_app(
     app.include_router(recipe_pages.router)
     app.include_router(shopping.router)
     app.include_router(calendar_web.router)
+    app.include_router(today_web.router)
 
     @app.get("/")
     def read_root() -> dict[str, str]:

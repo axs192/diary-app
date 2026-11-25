@@ -94,6 +94,22 @@ ignoring capitals and spaces. Any other word before the colon becomes a tag
 the calendar at once. Changing a title in Outlook shows up at the next sync
 (at most 15 minutes, or press **Sync now**).
 
+### Where an adult is working
+
+An event whose title is a name, a colon and only a place in square brackets
+says where that adult is that day:
+
+| Title in Outlook | Shown as |
+|---|---|
+| `Alex : [London]` | Alex is in London that day (not listed as an event) |
+| `Alex : [Off]` | Alex is off (any word works) |
+| `Alex : [London] meeting` | An ordinary event called "[London] meeting" |
+
+A weekday with no marker shows **WFH** for every adult; weekends show nothing
+unless marked. Only adults (set in Settings > People & colours) have a place;
+a marker for a child or for Family is shown as an ordinary event so a mistake
+is easy to spot. If someone has two markers on a day, the earlier one wins.
+
 If the word used in Outlook is not the person's name (say `Mummy : Swimming`
 for Mum), open **Settings > People & colours** and pick it in that person's
 **Called this in Outlook** dropdown. The dropdown lists the words found before

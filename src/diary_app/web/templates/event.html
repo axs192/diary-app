@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Diary · {{ event.title }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="eyebrow">{{ event.person.name }}{% if event.kind %} · {{ event.kind }}{% endif %}</div>
+  <h1 class="title">{{ event.title }}</h1>
+</div>
+<article class="card event-card" style="border-left: 6px solid {{ event.person.colour }}">
+  <p class="event-when">{{ when }}</p>
+  <ul class="chips">
+    <li class="chip cal-person" style="background: {{ event.person.colour }}">{{ event.person.name }}</li>
+    {% if event.kind %}<li class="chip chip-kind">{{ event.kind }}</li>{% endif %}
+  </ul>
+  {% if note %}<p class="event-note">{{ note }}</p>{% endif %}
+  <p class="muted">From the {{ event.calendar }} calendar.</p>
+</article>
+<a class="btn" href="{{ back }}">&larr; Back</a>
+{% endblock %}

@@ -70,6 +70,8 @@ class RawEvent:
         end: End in the same zone (exclusive; the next midnight for a
             one-day all-day event).
         all_day: Whether Outlook marks it all-day.
+        note: Plain-text start of the event's notes (Graph's
+            ``bodyPreview``, up to 255 characters); empty if none.
     """
 
     id: str
@@ -77,6 +79,7 @@ class RawEvent:
     start: datetime.datetime
     end: datetime.datetime
     all_day: bool
+    note: str = ""
 
 
 class TokenSource(Protocol):
@@ -162,7 +165,7 @@ class GraphClient:
             {
                 "startDateTime": self._with_offset(start),
                 "endDateTime": self._with_offset(end),
-                "$select": "id,subject,start,end,isAllDay",
+                "$select": "id,subject,start,end,isAllDay,bodyPreview",
                 "$top": _PAGE_SIZE,
             },
         )
@@ -249,6 +252,7 @@ def _raw_event(row: dict[str, object]) -> RawEvent:
             start=_graph_time(row["start"]),
             end=_graph_time(row["end"]),
             all_day=bool(row.get("isAllDay")),
+            note=str(row.get("bodyPreview") or "").strip(),
         )
     except (KeyError, ValueError) as exc:
         msg = "Microsoft sent an event the diary could not read."

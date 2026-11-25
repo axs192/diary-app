@@ -46,3 +46,30 @@
   {% endif %}
 </select>
 {% endmacro %}
+
+{# One line saying where each adult is: "Alex London · Cindy WFH". Empty when
+   nothing is known, so the caller need not check. #}
+{% macro where_line(where) %}
+{% if where %}
+<ul class="where" aria-label="Where everyone is">
+  {% for w in where %}<li class="where-item"><span class="where-dot" style="background: {{ w.person.colour }}" aria-hidden="true"></span>{{ w.person.name }} {{ w.place }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% endmacro %}
+
+{# The time shown beside an event: "All day" or its start, as "5pm". #}
+{% macro ev_time(e) %}{% if e.all_day %}All day{% else %}{{ e.start|clock }}{% endif %}{% endmacro %}
+
+{# The calendar status line, or the reason there is nothing to show. #}
+{% macro sync_notice(banner) %}
+{% if not banner.connected %}
+<p class="notice notice-warn" role="status">Outlook is not connected yet. See <a href="/settings?section=calendar">Settings &rsaquo; Calendar</a>.</p>
+{% else %}
+{% if banner.needs_sign_in %}
+<p class="notice notice-warn" role="status">Outlook needs signing in again. On the server run <code>diary-app login-outlook</code>. <a href="/settings?section=calendar">More in Settings</a>.</p>
+{% elif banner.problem %}
+<p class="notice notice-warn" role="status">The last sync failed: {{ banner.problem }} <a href="/settings?section=calendar">Settings</a></p>
+{% endif %}
+<p class="muted cal-status">{{ banner.synced }}</p>
+{% endif %}
+{% endmacro %}

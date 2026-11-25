@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import where_line, ev_time, sync_notice %}
 {% block title %}Diary · Today{% endblock %}
 {% block head_extra %}<meta http-equiv="refresh" content="300">{% endblock %}
 {% block content %}
@@ -8,12 +9,76 @@
     <h1 class="title">{{ long_date }}</h1>
   </div>
 </div>
-<section class="panel-accent card-block" aria-label="Kids' diary">
-  <h2 class="section-title on-accent">Kids' diary</h2>
-  <p class="on-accent-text">Today's and tomorrow's events for each child will appear here once the calendar is connected.</p>
-</section>
-<section class="card" aria-label="Coming up">
-  <h2 class="section-title">Coming up</h2>
-  <p class="muted">Nothing to show yet. Meals, shopping and the family calendar arrive in the next updates.</p>
-</section>
+{% if not banner.connected or banner.needs_sign_in or banner.problem %}
+{{ sync_notice(banner) }}
+{% endif %}
+<div class="today row">
+  <section class="kids panel-accent card-block" aria-label="Kids' diary">
+    <h2 class="section-title on-accent">Kids' diary</h2>
+    {% for kid in view.kids %}
+    <div class="kid">
+      <div class="kid-head">
+        <span class="avatar kid-avatar" style="background: {{ kid.person.colour }}" aria-hidden="true">{{ kid.person.name[:1]|upper }}</span>
+        <span class="kid-name">{{ kid.person.name }}</span>
+      </div>
+      {% for label, events in (("Today", kid.today), ("Tomorrow", kid.tomorrow)) %}
+      <div class="kid-day">
+        <div class="kid-day-label">{{ label }}</div>
+        {% for e in events %}
+        <a class="ev-row" href="{{ event_url(e.id, 'home') }}">
+          <span class="ev-time">{{ ev_time(e) }}</span>
+          <span class="ev-title">{{ e.title }}</span>
+        </a>
+        {% else %}
+        <p class="kid-empty">Nothing on.</p>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="on-accent-text">No children yet. Add them in <a class="on-accent-link" href="/settings?section=people">Settings &rsaquo; People</a>, choosing <em>Child</em>.</p>
+    {% endfor %}
+  </section>
+
+  <section class="coming card" aria-label="Coming up">
+    <div class="coming-head">
+      <h2 class="section-title">Coming up</h2>
+      <span class="muted-inline">to {{ view.until.strftime("%a") }} {{ view.until.day }} {{ view.until.strftime("%b") }}</span>
+    </div>
+    {% for day in view.coming_up %}
+    <div class="up-day">
+      <div class="up-head">
+        <span class="up-label">{% if loop.first %}Tomorrow · {% endif %}{{ day.date.strftime("%a") }} {{ day.date.day }}</span>
+        {{ where_line(day.where) }}
+      </div>
+      {% for e in day.events %}
+      <a class="ev-row ev-up" style="border-left-color: {{ e.person.colour }}" href="{{ event_url(e.id, 'home') }}">
+        <span class="ev-time">{{ ev_time(e) }}</span>
+        <span class="ev-body">
+          <span class="ev-title">{{ e.title }}</span>
+          <span class="ev-who" style="color: {{ e.person.colour }}">{{ e.person.name }}{% if e.kind %} · {{ e.kind }}{% endif %}</span>
+        </span>
+      </a>
+      {% else %}
+      <p class="muted cal-empty">Nothing on.</p>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% if banner.connected and not banner.problem and not banner.needs_sign_in %}
+    <p class="muted cal-status">{{ banner.synced }}</p>
+    {% endif %}
+  </section>
+
+  {% if view.tonight %}
+  <a class="tonight" href="/recipes/{{ view.tonight.id }}">
+    <span class="tonight-label">Tonight</span>
+    <span class="tonight-meal">{{ view.tonight.name }}</span>
+  </a>
+  {% else %}
+  <a class="tonight tonight-empty" href="/meals">
+    <span class="tonight-label">Tonight</span>
+    <span class="tonight-meal">No dinner planned</span>
+  </a>
+  {% endif %}
+</div>
 {% endblock %}

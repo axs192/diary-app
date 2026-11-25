@@ -85,15 +85,16 @@ def add_person(
     return _get(conn, cursor.lastrowid)
 
 
-def update_person(
+def update_person(  # noqa: PLR0913
     conn: sqlite3.Connection,
     person_id: int,
     *,
     name: str,
     colour: str,
     outlook_category: str,
+    role: str | None = None,
 ) -> Person:
-    """Changes a person's name, colour and Outlook category.
+    """Changes a person's name, colour, Outlook category and role.
 
     Args:
         conn: Open database connection.
@@ -101,22 +102,55 @@ def update_person(
         name: New display name.
         colour: New colour from ``theme.PERSON_COLOURS``.
         outlook_category: New Outlook category.
+        role: ``Adult`` or ``Child``; ``None`` (or blank) keeps the current
+            role. ``Family`` always stays ``Everyone``.
 
     Returns:
         The updated person.
 
     Raises:
-        InvalidPersonError: If any detail is not acceptable.
+        InvalidPersonError: If any detail is not acceptable, including a
+            role change for ``Family`` or a role other than Adult or Child.
         LookupError: If no such person exists.
     """
     name, outlook_category = _validate(name, colour, outlook_category)
-    _get(conn, person_id)
+    current = _get(conn, person_id)
+    if role:
+        if role != current.role and (
+            current.role == "Everyone" or role not in ADDABLE_ROLES
+        ):
+            msg = f"Role must be one of {', '.join(ADDABLE_ROLES)}."
+            raise InvalidPersonError(msg)
+    else:
+        role = current.role
     conn.execute(
-        "UPDATE person SET name = ?, colour = ?, outlook_category = ?"
-        " WHERE id = ?",
-        (name, colour, outlook_category, person_id),
+        "UPDATE person SET name = ?, colour = ?, outlook_category = ?,"
+        " role = ? WHERE id = ?",
+        (name, colour, outlook_category, role, person_id),
     )
     return _get(conn, person_id)
+
+
+def delete_person(conn: sqlite3.Connection, person_id: int) -> None:
+    """Removes a person.
+
+    Nothing else in the database refers to a person: events are matched to
+    people by title when they are read, so an event that named them simply
+    stops matching (add the name again and it matches again).
+
+    Args:
+        conn: Open database connection.
+        person_id: Id of the person to remove.
+
+    Raises:
+        InvalidPersonError: If the person is ``Family``, which stays.
+        LookupError: If no such person exists.
+    """
+    person = _get(conn, person_id)
+    if person.role == "Everyone":
+        msg = "Family cannot be removed."
+        raise InvalidPersonError(msg)
+    conn.execute("DELETE FROM person WHERE id = ?", (person_id,))
 
 
 def _validate(name: str, colour: str, outlook_category: str) -> tuple[str, str]:

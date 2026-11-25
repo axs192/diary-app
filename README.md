@@ -1,8 +1,8 @@
 # diary-app
 
 Family diary: weekly meal plans, a recipe library (with import from a few
-allowed sites), a pantry and a shopping list generated from the plan and, later,
-per-person calendars. It is a
+allowed sites), a pantry and a shopping list generated from the plan, and the
+family's Outlook calendar on a kitchen-screen Today page. It is a
 server-rendered FastAPI app behind a household PIN, built for a kitchen iPad
 and also usable from phones. See [Installing on the iPad](#installing-on-the-ipad).
 
@@ -108,6 +108,28 @@ returning the value. Non-secret settings stay in
 the step-by-step guide in [docs/systemd-credentials.md](docs/systemd-credentials.md).
 
 Local development still uses a git-ignored `.env` file (dummy values only).
+
+## Today (the kitchen screen)
+
+`/home` is the screen the kitchen iPad sits on. **Kids' diary** has a block for
+each person whose role is *Child* (set it in Settings > People & colours, where
+you can also change a role or remove someone), with their events today and
+tomorrow. **Coming up** lists each day after today with its events and a line
+saying where each adult is. **Tonight** shows today's planned dinner. Tap an
+event for its own page (who, when, the notes you wrote in Outlook). How far
+ahead Coming up looks (until Sunday, 7 days or 14) is in Settings > This device;
+the calendar sync window (Settings > Calendar) must cover it. Settings > This
+device can also hide event notes from the event page (on by default), since
+notes may hold private things and the screen is on a wall. The page
+refreshes itself every five minutes.
+
+**Where adults are.** Add an event titled `Alex : [London]` (name, colon, place
+in square brackets, nothing else) on the days Alex is somewhere other than
+home; any word works (`[Off]`, `[Leeds]`). A weekday with no such event shows
+**WFH**, and weekends show nothing unless marked. These marker events are not
+listed as ordinary events. Until the calendar has synced once no "WFH" is shown,
+so a diary that is not connected does not claim everyone is home. Reminders are
+not here yet: they come with the email phase.
 
 ## Calendar (Outlook)
 

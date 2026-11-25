@@ -33,16 +33,21 @@ class SignedOutToken:
         raise outlook.NeedsSignInError
 
 
-def graph_event(
+def graph_event(  # noqa: PLR0913 (a test helper; reads best as is)
     event_id: str,
     title: str,
     start: str,
     end: str,
     *,
     all_day: bool = False,
+    note: str | None = None,
 ) -> dict[str, object]:
-    """Builds one event as Graph returns it (times in the requested zone)."""
-    return {
+    """Builds one event as Graph returns it (times in the requested zone).
+
+    ``note`` becomes ``bodyPreview`` (Graph's plain-text start of the body);
+    left out, the field is absent, as when nobody wrote a note.
+    """
+    event: dict[str, object] = {
         "id": event_id,
         "subject": title,
         "isAllDay": all_day,
@@ -50,6 +55,9 @@ def graph_event(
         "end": {"dateTime": f"{end}.0000000", "timeZone": "Europe/London"},
         "categories": [],
     }
+    if note is not None:
+        event["bodyPreview"] = note
+    return event
 
 
 @dataclasses.dataclass
